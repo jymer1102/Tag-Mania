@@ -1,0 +1,112 @@
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    user-select: none; 
+}
+
+body { 
+    font-family: sans-serif; 
+    background: #222; 
+    overflow: hidden; 
+    touch-action: none; 
+}
+
+/* Login Screen layout */
+#login-screen {
+    position: absolute; 
+    width: 100%; 
+    height: 100%; 
+    background: #333;
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 10;
+}
+
+#login-screen h1 { 
+    color: #fff; 
+    margin-bottom: 20px; 
+}
+
+.input-group {
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+#username-input { 
+    padding: 10px; 
+    font-size: 18px; 
+    border-radius: 5px; 
+    border: none; 
+    text-align: center; 
+}
+
+#color-picker {
+    width: 60px;
+    height: 40px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background: transparent;
+}
+
+#start-btn { 
+    padding: 10px 20px; 
+    font-size: 18px; 
+    background: #28a745; 
+    color: white; 
+    border: none; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    margin-top: 10px;
+}
+
+/* Game Arena and Heads-Up Display */
+#game-container { 
+    display: none; 
+    width: 100vw; 
+    height: 100vh; 
+    position: relative; 
+}
+
+canvas { 
+    background: #444; 
+    display: block; 
+    width: 100%; 
+    height: 100%; 
+}
+
+#status-box { 
+    position: absolute; 
+    top: 10px; 
+    left: 10px; 
+    color: white; 
+    background: rgba(0,0,0,0.5); 
+    padding: 8px; 
+    border-radius: 5px; 
+    font-size: 14px; 
+}
+
+/* Mobile Virtual Joystick design */
+#joystick-zone { 
+    position: absolute; 
+    bottom: 40px; 
+    left: 40px; 
+    width: 120px; 
+    height: 120px; 
+    background: rgba(255,255,255,0.2); 
+    border-radius: 50%; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+#joystick-stick { 
+    width: 50px; 
+    height: 50px; 
+    background: rgba(255,255,255,0.6); 
+    border-radius: 50%; 
+    position: absolute; 
+}
