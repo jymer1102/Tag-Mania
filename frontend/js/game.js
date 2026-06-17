@@ -1,8 +1,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// CONNECT TO MULTIPLAYER SERVER 
-// (Swap "http://localhost:3000" with your live cloud URL when deployed!)
+// --- CONNECT TO MULTIPLAYER SERVER ---
+// ⚠️ Replace the URL inside the quotes with your exact live Render URL!
 const socket = io("https://tag-mania.onrender.com");
 
 let myId = null;
@@ -10,7 +10,7 @@ let myUsername = "Player";
 let myChosenColor = "#007bff";
 let isPlaying = false;
 let tagCooldown = 0; 
-let players = {}; // Master sync list from the server
+let players = {}; 
 
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -20,7 +20,7 @@ const mazeGrid = [
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Pac-Man portal row
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -63,7 +63,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Joystick controls
+// Joystick Setup
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -104,7 +104,6 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Collision math
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -130,10 +129,17 @@ function checkWallCollision(radius, nextX, nextY) {
     return false;
 }
 
-// NETWORK EVENTS FROM SERVER
+// --- GATEWAY NETWORK CONNECTIONS ---
 socket.on('connect', () => {
     myId = socket.id;
-    document.getElementById('status-box').innerText = "Connected! Click Join.";
+    const statusBox = document.getElementById('status-box');
+    if(statusBox) statusBox.innerText = "Connected! Click Join.";
+});
+
+socket.on('connect_error', (err) => {
+    const statusBox = document.getElementById('status-box');
+    if(statusBox) statusBox.innerText = "Connection failed. Retrying...";
+    console.error("Socket error details:", err);
 });
 
 socket.on('syncPlayers', (serverPlayers) => {
@@ -145,7 +151,7 @@ socket.on('syncCooldown', (cooldownTime) => {
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    if (!myId) return alert("Still connecting to server, please wait a second.");
+    if (!myId) return alert("Still connecting to server... give it a brief moment.");
     const nameInput = document.getElementById('username-input').value.trim();
     if (nameInput) myUsername = nameInput;
     myChosenColor = document.getElementById('color-picker').value;
@@ -153,7 +159,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // Tell server we are ready to spawn
     socket.emit('playerJoin', {
         name: myUsername,
         color: myChosenColor,
@@ -162,21 +167,19 @@ document.getElementById('start-btn').addEventListener('click', () => {
     isPlaying = true;
 });
 
-function gameLoop(timestamp) {
+function gameLoop() {
     if (isPlaying && players[myId]) {
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         let me = players[myId];
 
-        // 1. Move our local character copy
         let nextMeX = me.x + moveX * 3.5;
         let nextMeY = me.y + moveY * 3.5;
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
 
-        // Pac-Man Teleportation calculation
         let mazeWidth = mazeGrid[0].length * tileSize;
         if (me.x > mazeWidth) me.x = me.x - mazeWidth;
         else if (me.x < 0) me.x = me.x + mazeWidth;
@@ -184,10 +187,10 @@ function gameLoop(timestamp) {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // 2. Report our updated positions directly to server engine
+        // Push positions to server instantly
         socket.emit('playerMove', { x: me.x, y: me.y });
 
-        // 3. Client-side hit detection (Only check tags if we are IT to prevent multi-sync bugs)
+        // Let the 'IT' player manage tag validation checks 
         if (me.isIt && tagCooldown === 0) {
             for (let id in players) {
                 if (id !== myId) {
@@ -201,18 +204,20 @@ function gameLoop(timestamp) {
             }
         }
 
-        // --- UPDATE STATUS HUD ---
+        // Render Status Message Updates
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
         
         const statusBox = document.getElementById('status-box');
-        if (tagCooldown > 0) {
-            statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
-        } else {
-            statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
+        if (statusBox) {
+            if (tagCooldown > 0) {
+                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
+            } else {
+                statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
+            }
         }
 
-        // --- DRAW MAZE ---
+        // Render Map Boundaries
         ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
@@ -225,7 +230,7 @@ function gameLoop(timestamp) {
             ctx.stroke();
         });
 
-        // --- DRAW ALL REAL NETWORK PLAYERS ---
+        // Map Render Loops for Synchronized Avatars
         for (let id in players) {
             let p = players[id];
             ctx.beginPath();
@@ -249,7 +254,6 @@ function gameLoop(timestamp) {
             ctx.fillText(p.name, p.x, p.y - p.radius - 4);
         }
     } else if (!isPlaying) {
-        // Clear background on login
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
