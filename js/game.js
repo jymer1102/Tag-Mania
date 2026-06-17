@@ -8,7 +8,6 @@ let tagCooldown = 0;
 let players = [];
 
 // Maze Grid Layout (1 = Wall, 0 = Empty Space)
-// An open design with lots of intersections so players can easily switch directions
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -28,19 +27,21 @@ const mazeGrid = [
 ];
 
 let walls = [];
-let tileSize = 40; // Size of each maze block
+let tileSize = 40; 
+
+// Bot pathfinding variables
+let botPath = [];
+let lastPathUpdateTime = 0;
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // Scale the maze tile size based on the screen width so it fits perfectly on phones
     tileSize = Math.floor(canvas.width / mazeGrid[0].length);
     if (tileSize * mazeGrid.length > canvas.height) {
         tileSize = Math.floor(canvas.height / mazeGrid.length);
     }
 
-    // Generate wall coordinate boxes based on the grid layout
     walls = [];
     for (let r = 0; r < mazeGrid.length; r++) {
         for (let c = 0; c < mazeGrid[r].length; c++) {
@@ -70,19 +71,16 @@ document.getElementById('start-btn').addEventListener('click', () => {
 });
 
 function initGame() {
-    // Set character size dynamically to ensure they easily fit through corridors
     const playerRadius = Math.floor(tileSize * 0.35);
 
-    // Spawn player in the upper-left open corridor area
     players.push({
         id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
         radius: playerRadius, speed: 3.5, isIt: false, color: myChosenColor
     });
 
-    // Spawn bot in the lower-right open corridor area
     players.push({
         id: 'bot', name: 'Friend_Bot', x: tileSize * 13.5, y: tileSize * 13.5, 
-        radius: playerRadius, speed: 2.2, isIt: false, color: '#e0a800'
+        radius: playerRadius, speed: 2.3, isIt: false, color: '#e0a800'
     });
 
     const randomPick = Math.floor(Math.random() * players.length);
@@ -132,7 +130,7 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Precise Circle-vs-Box Collision Logic
+// Circle-vs-Box Collision Logic
 function checkWallCollision(player, nextX, nextY) {
     for (let wall of walls) {
         let closestX = Math.max(wall.x, Math.min(nextX, wall.x + wall.width));
@@ -149,6 +147,60 @@ function checkWallCollision(player, nextX, nextY) {
     return false;
 }
 
+// BFS Pathfinding Algorithm for the Bot
+function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
+    if (startGridX === targetGridX && startGridY === targetGridY) return [];
+
+    let queue = [[startGridX, startGridY]];
+    let visited = Array(mazeGrid.length).fill().map(() => Array(mazeGrid[0].length).fill(false));
+    visited[startGridY][startGridX] = true;
+    
+    let parentMap = {};
+
+    const directions = [
+        [0, -1], [0, 1], [-1, 0], [1, 0] // Up, Down, Left, Right
+    ];
+
+    let found = false;
+
+    while (queue.length > 0) {
+        let [cx, cy] = queue.shift();
+
+        if (cx === targetGridX && cy === targetGridY) {
+            found = true;
+            break;
+        }
+
+        for (let [dx, dy] of directions) {
+            let nx = cx + dx;
+            let ny = cy + dy;
+
+            if (ny >= 0 && ny < mazeGrid.length && nx >= 0 && nx < mazeGrid[0].length) {
+                if (!visited[ny][nx] && mazeGrid[ny][nx] === 0) {
+                    visited[ny][nx] = true;
+                    parentMap[`${nx},${ny}`] = `${cx},${cy}`;
+                    queue.push([nx, ny]);
+                }
+            }
+        }
+    }
+
+    if (!found) return [];
+
+    // Reconstruct path backward
+    let path = [];
+    let currentKey = `${targetGridX},${targetGridY}`;
+    let startKey = `${startGridX},${startGridY}`;
+
+    while (currentKey !== startKey) {
+        let [x, y] = currentKey.split(',').map(Number);
+        path.unshift({ x: x * tileSize + tileSize / 2, y: y * tileSize + tileSize / 2 });
+        currentKey = parentMap[currentKey];
+    }
+
+    return path;
+}
+
 function updateStatusText() {
     const statusBox = document.getElementById('status-box');
     const currentIt = players.find(p => p.isIt);
@@ -159,9 +211,8 @@ function updateStatusText() {
     }
 }
 
-function gameLoop() {
+function gameLoop(timestamp) {
     if (isPlaying) {
-        // Draw deep arena background color
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -174,29 +225,52 @@ function gameLoop() {
         let me = players.find(p => p.id === 'me');
         let bot = players.find(p => p.id === 'bot');
 
-        // Process movement handling with independent axis sliding
+        // Move Player
         let nextMeX = me.x + moveX * me.speed;
         let nextMeY = me.y + moveY * me.speed;
         
         if (!checkWallCollision(me, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me, me.x, nextMeY)) me.y = nextMeY;
 
-        // Bot path AI simulation
-        if (bot) {
-            let diffX = me.x - bot.x;
-            let diffY = me.y - bot.y;
-            let dist = Math.sqrt(diffX*diffX + diffY*diffY);
-            if (dist > 5) {
-                let dirX = diffX / dist;
-                let dirY = diffY / dist;
-                let multiplier = bot.isIt ? 1 : -1;
-                
-                if (tagCooldown === 0 || !bot.isIt) {
-                    let nextBotX = bot.x + dirX * bot.speed * multiplier;
-                    let nextBotY = bot.y + dirY * bot.speed * multiplier;
+        // Smart Bot Pathfinding Logic
+        if (bot && (tagCooldown === 0 || !bot.isIt)) {
+            let botGridX = Math.floor(bot.x / tileSize);
+            let botGridY = Math.floor(bot.y / tileSize);
+            let myGridX = Math.floor(me.x / tileSize);
+            let myGridY = Math.floor(me.y / tileSize);
+
+            // Recalculate smart path every 400ms to save performance
+            if (timestamp - lastPathUpdateTime > 400) {
+                if (bot.isIt) {
+                    // Tagger bot recalculates path toward the player
+                    botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
+                } else {
+                    // Runner bot runs away to the furthest opposite open corner
+                    let targetCornerX = myGridX < mazeGrid[0].length / 2 ? 13 : 1;
+                    let targetCornerY = myGridY < mazeGrid.length / 2 ? 13 : 1;
+                    botPath = findShortestPath(botGridX, botGridY, targetCornerX, targetCornerY);
+                }
+                lastPathUpdateTime = timestamp;
+            }
+
+            // Follow calculated path node points
+            if (botPath.length > 0) {
+                let targetNode = botPath[0];
+                let diffX = targetNode.x - bot.x;
+                let diffY = targetNode.y - bot.y;
+                let dist = Math.sqrt(diffX * diffX + diffY * diffY);
+
+                if (dist > 4) {
+                    let dirX = diffX / dist;
+                    let dirY = diffY / dist;
                     
+                    let nextBotX = bot.x + dirX * bot.speed;
+                    let nextBotY = bot.y + dirY * bot.speed;
+
                     if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
                     if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
+                } else {
+                    botPath.shift(); // Reached this corridor point, remove it
                 }
             }
         }
@@ -211,6 +285,7 @@ function gameLoop() {
                 p1.isIt = !p1.isIt;
                 p2.isIt = !p2.isIt;
                 tagCooldown = 3000; 
+                botPath = []; // Clear path to recalculate on switch
                 updateStatusText();
             }
         }
