@@ -90,13 +90,13 @@ canvas {
     font-weight: bold;
 }
 
-/* Onscreen Mobile Joystick - MOVED TO THE RIGHT */
+/* Onscreen Mobile Joystick - Positioned between map and bottom search bar */
 #joystick-zone { 
     position: absolute; 
-    bottom: 40px; 
-    right: 40px; /* Changed from left: 40px to right: 40px */
-    width: 120px; 
-    height: 120px; 
+    bottom: 85px;       /* Raised it up higher to clear your bottom search bar */
+    right: 25px;        /* Tucked it slightly closer to the right edge for thumb comfort */
+    width: 110px;       /* Sized down just a tiny bit to fit the gap better */
+    height: 110px; 
     background: rgba(255,255,255,0.2); 
     border-radius: 50%; 
     display: flex; 
