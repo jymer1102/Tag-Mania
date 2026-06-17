@@ -1,11 +1,16 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// CONNECT TO MULTIPLAYER SERVER 
+// (Swap "http://localhost:3000" with your live cloud URL when deployed!)
+const socket = io("https://jymer1102.github.io/Tag-Mania/");
+
+let myId = null;
 let myUsername = "Player";
 let myChosenColor = "#007bff";
 let isPlaying = false;
 let tagCooldown = 0; 
-let players = [];
+let players = {}; // Master sync list from the server
 
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -15,7 +20,7 @@ const mazeGrid = [
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Pac-Man portal row
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -28,9 +33,6 @@ const mazeGrid = [
 let wallSegments = [];
 let tileSize = 40; 
 const wallThickness = 16; 
-
-let botPath = [];
-let lastPathUpdateTime = 0;
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -61,36 +63,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-document.getElementById('start-btn').addEventListener('click', () => {
-    const nameInput = document.getElementById('username-input').value.trim();
-    if (nameInput) myUsername = nameInput;
-    myChosenColor = document.getElementById('color-picker').value;
-
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('game-container').style.display = 'block';
-    isPlaying = true;
-    initGame();
-});
-
-function initGame() {
-    const playerRadius = Math.floor(tileSize * 0.28);
-
-    players.push({
-        id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
-        radius: playerRadius, speed: 3.5, isIt: false, color: myChosenColor
-    });
-
-    players.push({
-        id: 'bot', name: 'Friend_Bot', x: tileSize * 13.5, y: tileSize * 13.5, 
-        radius: playerRadius, speed: 2.3, isIt: false, color: '#e0a800'
-    });
-
-    const randomPick = Math.floor(Math.random() * players.length);
-    players[randomPick].isIt = true;
-    updateStatusText();
-}
-
-// Onscreen Joystick controls
+// Joystick controls
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -131,225 +104,115 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Precise Capsule Collision Check 
+// Collision math
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
-
     let t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
     t = Math.max(0, Math.min(1, t)); 
-
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
-
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
     return dist < (radius + (wallThickness / 2) - 0.5); 
 }
 
-function checkWallCollision(player, nextX, nextY) {
+function checkWallCollision(radius, nextX, nextY) {
     if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
         if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
             return false;
         }
     }
-
     for (let seg of wallSegments) {
-        if (checkLineCollision(nextX, nextY, player.radius, seg)) {
+        if (checkLineCollision(nextX, nextY, radius, seg)) {
             return true;
         }
     }
     return false;
 }
 
-// Re-mapped BFS Pathfinding 
-function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
-    if (startGridX === targetGridX && startGridY === targetGridY) return [];
+// NETWORK EVENTS FROM SERVER
+socket.on('connect', () => {
+    myId = socket.id;
+    document.getElementById('status-box').innerText = "Connected! Click Join.";
+});
 
-    let cols = mazeGrid[0].length;
-    let rows = mazeGrid.length;
-    let queue = [[startGridX, startGridY]];
-    let visited = Array(rows).fill().map(() => Array(cols).fill(false));
-    visited[startGridY][startGridX] = true;
+socket.on('syncPlayers', (serverPlayers) => {
+    players = serverPlayers;
+});
+
+socket.on('syncCooldown', (cooldownTime) => {
+    tagCooldown = cooldownTime;
+});
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    if (!myId) return alert("Still connecting to server, please wait a second.");
+    const nameInput = document.getElementById('username-input').value.trim();
+    if (nameInput) myUsername = nameInput;
+    myChosenColor = document.getElementById('color-picker').value;
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('game-container').style.display = 'block';
     
-    let parentMap = {};
-    const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
-    let found = false;
-
-    while (queue.length > 0) {
-        let [cx, cy] = queue.shift();
-
-        if (cx === targetGridX && cy === targetGridY) {
-            found = true;
-            break;
-        }
-
-        for (let [dx, dy] of directions) {
-            let nx = cx + dx;
-            let ny = cy + dy;
-
-            if (ny === 7) {
-                if (nx < 0) nx = cols - 1;
-                if (nx >= cols) nx = 0;
-            }
-
-            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols) {
-                if (!visited[ny][nx] && mazeGrid[ny][nx] === 0) {
-                    visited[ny][nx] = true;
-                    parentMap[`${nx},${ny}`] = `${cx},${cy}`;
-                    queue.push([nx, ny]);
-                }
-            }
-        }
-    }
-
-    if (!found) return [];
-
-    let path = [];
-    let currentKey = `${targetGridX},${targetGridY}`;
-    let startKey = `${startGridX},${startGridY}`;
-
-    while (currentKey !== startKey) {
-        let [x, y] = currentKey.split(',').map(Number);
-        path.unshift({ x: x * tileSize + tileSize / 2, y: y * tileSize + tileSize / 2 });
-        currentKey = parentMap[currentKey];
-    }
-
-    return path;
-}
-
-function updateStatusText() {
-    const statusBox = document.getElementById('status-box');
-    const currentIt = players.find(p => p.isIt);
-    if (tagCooldown > 0) {
-        statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentIt.name} is IT!`;
-    } else {
-        statusBox.innerHTML = `🏃 ${currentIt.name} is IT! RUN!`;
-    }
-}
+    // Tell server we are ready to spawn
+    socket.emit('playerJoin', {
+        name: myUsername,
+        color: myChosenColor,
+        radius: Math.floor(tileSize * 0.28)
+    });
+    isPlaying = true;
+});
 
 function gameLoop(timestamp) {
-    if (isPlaying) {
+    if (isPlaying && players[myId]) {
         ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if (tagCooldown > 0) {
-            tagCooldown -= 16.66;
-            if (tagCooldown < 0) tagCooldown = 0;
-            updateStatusText();
-        }
+        let me = players[myId];
 
-        let me = players.find(p => p.id === 'me');
-        let bot = players.find(p => p.id === 'bot');
-
-        // Move Player
-        let nextMeX = me.x + moveX * me.speed;
-        let nextMeY = me.y + moveY * me.speed;
+        // 1. Move our local character copy
+        let nextMeX = me.x + moveX * 3.5;
+        let nextMeY = me.y + moveY * 3.5;
         
-        if (!checkWallCollision(me, nextMeX, me.y)) me.x = nextMeX;
-        if (!checkWallCollision(me, me.x, nextMeY)) me.y = nextMeY;
+        if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
+        if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
 
-        // Smart Bot Pathfinding Logic
-        if (bot && (tagCooldown === 0 || !bot.isIt)) {
-            let botGridX = Math.floor(bot.x / tileSize);
-            let botGridY = Math.floor(bot.y / tileSize);
-            let myGridX = Math.floor(me.x / tileSize);
-            let myGridY = Math.floor(me.y / tileSize);
+        // Pac-Man Teleportation calculation
+        let mazeWidth = mazeGrid[0].length * tileSize;
+        if (me.x > mazeWidth) me.x = me.x - mazeWidth;
+        else if (me.x < 0) me.x = me.x + mazeWidth;
 
-            botGridX = Math.max(0, Math.min(botGridX, mazeGrid[0].length - 1));
-            botGridY = Math.max(0, Math.min(botGridY, mazeGrid.length - 1));
-            myGridX = Math.max(0, Math.min(myGridX, mazeGrid[0].length - 1));
-            myGridY = Math.max(0, Math.min(myGridY, mazeGrid.length - 1));
+        if (me.y - me.radius < 0) me.y = me.radius;
+        if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-            // Calculate distance between bot and player
-            let rawDiffX = me.x - bot.x;
-            let rawDiffY = me.y - bot.y;
-            
-            // Factor in portal wrapping for distance checks
-            let mazeWidth = mazeGrid[0].length * tileSize;
-            if (Math.abs(rawDiffX) > mazeWidth / 2) {
-                rawDiffX = rawDiffX > 0 ? rawDiffX - mazeWidth : rawDiffX + mazeWidth;
-            }
-            let directDistanceToPlayer = Math.sqrt(rawDiffX * rawDiffX + rawDiffY * rawDiffY);
+        // 2. Report our updated positions directly to server engine
+        socket.emit('playerMove', { x: me.x, y: me.y });
 
-            // --- FIXED BOT OVER-AVOIDANCE LUNGE ---
-            // If the bot is IT and close enough to tag you (within 1.8 corridors away), it lunges straight for you
-            if (bot.isIt && directDistanceToPlayer < tileSize * 1.8) {
-                let dirX = rawDiffX / directDistanceToPlayer;
-                let dirY = rawDiffY / directDistanceToPlayer;
-                
-                let lungeX = bot.x + dirX * bot.speed;
-                let lungeY = bot.y + dirY * bot.speed;
-
-                // Move directly toward you, only stopping if it hits a wall dead-on
-                if (!checkWallCollision(bot, lungeX, bot.y)) bot.x = lungeX;
-                if (!checkWallCollision(bot, bot.x, lungeY)) bot.y = lungeY;
-            } 
-            // Normal path navigation if too far away or running away
-            else {
-                if (timestamp - lastPathUpdateTime > 350) {
-                    if (bot.isIt) {
-                        botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
-                    } else {
-                        let targetCornerX = myGridX < mazeGrid[0].length / 2 ? 13 : 1;
-                        let targetCornerY = myGridY < mazeGrid.length / 2 ? 13 : 1;
-                        botPath = findShortestPath(botGridX, botGridY, targetCornerX, targetCornerY);
-                    }
-                    lastPathUpdateTime = timestamp;
-                }
-
-                if (botPath.length > 0) {
-                    let targetNode = botPath[0];
-                    let diffX = targetNode.x - bot.x;
-                    let diffY = targetNode.y - bot.y;
-
-                    if (Math.abs(diffX) > mazeWidth / 2) {
-                        diffX = diffX > 0 ? diffX - mazeWidth : diffX + mazeWidth;
-                    }
-
-                    let dist = Math.sqrt(diffX * diffX + diffY * diffY);
-
-                    if (dist > 4) {
-                        let dirX = diffX / dist;
-                        let dirY = diffY / dist;
-                        
-                        let nextBotX = bot.x + dirX * bot.speed;
-                        let nextBotY = bot.y + dirY * bot.speed;
-
-                        if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
-                        if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
-                    } else {
-                        botPath.shift();
+        // 3. Client-side hit detection (Only check tags if we are IT to prevent multi-sync bugs)
+        if (me.isIt && tagCooldown === 0) {
+            for (let id in players) {
+                if (id !== myId) {
+                    let p2 = players[id];
+                    let dist = Math.sqrt((me.x - p2.x)**2 + (me.y - p2.y)**2);
+                    if (dist < (me.radius + p2.radius)) {
+                        socket.emit('tagCollision', { taggedId: id });
+                        break;
                     }
                 }
             }
         }
 
-        // Pac-Man Teleportation Logic
-        players.forEach(p => {
-            let mazeWidth = mazeGrid[0].length * tileSize;
-            if (p.x > mazeWidth) p.x = p.x - mazeWidth;
-            else if (p.x < 0) p.x = p.x + mazeWidth;
-
-            if (p.y - p.radius < 0) p.y = p.radius;
-            if (p.y + p.radius > canvas.height) p.y = canvas.height - p.radius;
-        });
-
-        // Player Tag Logic
-        if (tagCooldown === 0 && players.length > 1) {
-            let p1 = players[0];
-            let p2 = players[1];
-            let dist = Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
-            
-            if (dist < (p1.radius + p2.radius)) {
-                p1.isIt = !p1.isIt;
-                p2.isIt = !p2.isIt;
-                tagCooldown = 3000; 
-                botPath = []; 
-                updateStatusText();
-            }
+        // --- UPDATE STATUS HUD ---
+        let currentItName = "Nobody";
+        for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
+        
+        const statusBox = document.getElementById('status-box');
+        if (tagCooldown > 0) {
+            statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
+        } else {
+            statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
         }
 
-        // Render pure white lines
+        // --- DRAW MAZE ---
         ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
@@ -362,8 +225,9 @@ function gameLoop(timestamp) {
             ctx.stroke();
         });
 
-        // Draw Players
-        players.forEach(p => {
+        // --- DRAW ALL REAL NETWORK PLAYERS ---
+        for (let id in players) {
+            let p = players[id];
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
@@ -383,10 +247,13 @@ function gameLoop(timestamp) {
             ctx.font = '11px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(p.name, p.x, p.y - p.radius - 4);
-        });
+        }
+    } else if (!isPlaying) {
+        // Clear background on login
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     requestAnimationFrame(gameLoop);
 }
-
 requestAnimationFrame(gameLoop);
