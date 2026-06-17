@@ -16,7 +16,7 @@ const mazeGrid = [
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Open Pac-Man side tunnel
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -26,8 +26,11 @@ const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
-let walls = [];
+// Instead of square boxes, we store exact Line Segments (p1 to p2)
+let wallSegments = [];
 let tileSize = 40; 
+const wallThickness = 16; 
+
 let botPath = [];
 let lastPathUpdateTime = 0;
 
@@ -40,17 +43,22 @@ function resizeCanvas() {
         tileSize = Math.floor(canvas.height / mazeGrid.length);
     }
 
-    // Keep the box collision boundaries accurate behind the scenes
-    walls = [];
+    // Generate line segments based on connected grid points
+    wallSegments = [];
     for (let r = 0; r < mazeGrid.length; r++) {
         for (let c = 0; c < mazeGrid[r].length; c++) {
             if (mazeGrid[r][c] === 1) {
-                walls.push({
-                    x: c * tileSize,
-                    y: r * tileSize,
-                    width: tileSize,
-                    height: tileSize
-                });
+                let startX = c * tileSize + tileSize / 2;
+                let startY = r * tileSize + tileSize / 2;
+
+                // Right neighbor connection
+                if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
+                    wallSegments.push({ x1: startX, y1: startY, x2: (c + 1) * tileSize + tileSize / 2, y2: startY });
+                }
+                // Bottom neighbor connection
+                if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
+                    wallSegments.push({ x1: startX, y1: startY, x2: startX, y2: (r + 1) * tileSize + tileSize / 2 });
+                }
             }
         }
     }
@@ -70,7 +78,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
 });
 
 function initGame() {
-    const playerRadius = Math.floor(tileSize * 0.32);
+    const playerRadius = Math.floor(tileSize * 0.30);
 
     players.push({
         id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
@@ -87,7 +95,7 @@ function initGame() {
     updateStatusText();
 }
 
-// Mobile Right-Side Joystick Setup
+// Onscreen Joystick Setup
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -129,24 +137,40 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Circle-vs-Box Collision Logic
+// --- NEW SMOOTH LINE & CAPS COLLISION LOGIC ---
+function checkLineCollision(px, py, radius, seg) {
+    let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
+    if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
+
+    // Find closest point projection on the line segment
+    let t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
+    t = Math.max(0, Math.min(1, t)); // Clamp to segment boundaries
+
+    let closestX = seg.x1 + t * (seg.x2 - seg.x1);
+    let closestY = seg.y1 + t * (seg.y2 - seg.y1);
+
+    let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+    // Collision triggers if player edge penetrates the line's thickness radius
+    return dist < (radius + (wallThickness / 2) - 1); 
+}
+
 function checkWallCollision(player, nextX, nextY) {
-    for (let wall of walls) {
-        let closestX = Math.max(wall.x, Math.min(nextX, wall.x + wall.width));
-        let closestY = Math.max(wall.y, Math.min(nextY, wall.y + wall.height));
+    // Let players pass freely through the Pac-Man wrap rows on the edges
+    if (nextY > tileSize * 6.5 && nextY < tileSize * 8.5) {
+        if (nextX < tileSize || nextX > canvas.width - tileSize) {
+            return false;
+        }
+    }
 
-        let distanceX = nextX - closestX;
-        let distanceY = nextY - closestY;
-        let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
-
-        if (distanceSquared < (player.radius * player.radius)) {
-            return true; 
+    for (let seg of wallSegments) {
+        if (checkLineCollision(nextX, nextY, player.radius, seg)) {
+            return true;
         }
     }
     return false;
 }
 
-// BFS Pathfinding Algorithm for the Bot
+// BFS Pathfinding Algorithm for Bot
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     if (startGridX === targetGridX && startGridY === targetGridY) return [];
 
@@ -169,6 +193,11 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
         for (let [dx, dy] of directions) {
             let nx = cx + dx;
             let ny = cy + dy;
+
+            if (ny === 7) {
+                if (nx < 0) nx = mazeGrid[0].length - 1;
+                if (nx >= mazeGrid[0].length) nx = 0;
+            }
 
             if (ny >= 0 && ny < mazeGrid.length && nx >= 0 && nx < mazeGrid[0].length) {
                 if (!visited[ny][nx] && mazeGrid[ny][nx] === 0) {
@@ -219,7 +248,7 @@ function gameLoop(timestamp) {
         let me = players.find(p => p.id === 'me');
         let bot = players.find(p => p.id === 'bot');
 
-        // Move Player
+        // Move Player with independent axis sliding
         let nextMeX = me.x + moveX * me.speed;
         let nextMeY = me.y + moveY * me.speed;
         
@@ -232,6 +261,11 @@ function gameLoop(timestamp) {
             let botGridY = Math.floor(bot.y / tileSize);
             let myGridX = Math.floor(me.x / tileSize);
             let myGridY = Math.floor(me.y / tileSize);
+
+            botGridX = Math.max(0, Math.min(botGridX, mazeGrid[0].length - 1));
+            botGridY = Math.max(0, Math.min(botGridY, mazeGrid.length - 1));
+            myGridX = Math.max(0, Math.min(myGridX, mazeGrid[0].length - 1));
+            myGridY = Math.max(0, Math.min(myGridY, mazeGrid.length - 1));
 
             if (timestamp - lastPathUpdateTime > 400) {
                 if (bot.isIt) {
@@ -265,6 +299,16 @@ function gameLoop(timestamp) {
             }
         }
 
+        // Pac-Man Warp Checks
+        players.forEach(p => {
+            let mazeWidth = mazeGrid[0].length * tileSize;
+            if (p.x > mazeWidth) p.x = 0;
+            else if (p.x < 0) p.x = mazeWidth;
+
+            if (p.y - p.radius < 0) p.y = p.radius;
+            if (p.y + p.radius > canvas.height) p.y = canvas.height - p.radius;
+        });
+
         // Tag checks (Player vs Player)
         if (tagCooldown === 0 && players.length > 1) {
             let p1 = players[0];
@@ -280,35 +324,18 @@ function gameLoop(timestamp) {
             }
         }
 
-        // --- NEW ROUNDED SMOOTH WALL RENDERING ---
-        ctx.strokeStyle = '#34495e'; // Wall color
-        ctx.lineWidth = 16;          // 16px thickness line walls
-        ctx.lineCap = 'round';       // Smooth rounded ends
-        ctx.lineJoin = 'round';      // Smooth rounded intersections
+        // --- DRAW SMOOTH WHITE LINES ---
+        ctx.strokeStyle = '#ffffff'; // Swapped to pure clean white lines
+        ctx.lineWidth = wallThickness;          
+        ctx.lineCap = 'round';       
+        ctx.lineJoin = 'round';      
 
-        for (let r = 0; r < mazeGrid.length; r++) {
-            for (let c = 0; c < mazeGrid[r].length; c++) {
-                if (mazeGrid[r][c] === 1) {
-                    let startX = c * tileSize + tileSize / 2;
-                    let startY = r * tileSize + tileSize / 2;
-
-                    // Check right neighbor
-                    if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
-                        ctx.beginPath();
-                        ctx.moveTo(startX, startY);
-                        ctx.lineTo((c + 1) * tileSize + tileSize / 2, startY);
-                        ctx.stroke();
-                    }
-                    // Check bottom neighbor
-                    if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
-                        ctx.beginPath();
-                        ctx.moveTo(startX, startY);
-                        ctx.lineTo(startX, (r + 1) * tileSize + tileSize / 2);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
+        wallSegments.forEach(seg => {
+            ctx.beginPath();
+            ctx.moveTo(seg.x1, seg.y1);
+            ctx.lineTo(seg.x2, seg.y2);
+            ctx.stroke();
+        });
 
         // Draw Players
         players.forEach(p => {
