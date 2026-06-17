@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile 2D Tag Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="login-screen">
+        <h1>2D Multi-Tag</h1>
+        <div class="input-group">
+            <input type="text" id="username-input" placeholder="Enter Username" maxlength="10">
+        </div>
+        
+        <div class="input-group">
+            <label for="color-picker" style="color: white; margin-bottom: 5px; display: block;">Choose Player Color:</label>
+            <input type="color" id="color-picker" value="#007bff">
+        </div>
+
+        <button id="start-btn">Join Game</button>
+    </div>
+
+    <div id="game-container">
+        <div id="status-box">Status: Waiting...</div>
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="joystick-zone">
+            <div id="joystick-stick"></div>
+        </div>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>
