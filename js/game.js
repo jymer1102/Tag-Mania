@@ -28,8 +28,6 @@ const mazeGrid = [
 
 let walls = [];
 let tileSize = 40; 
-
-// Bot pathfinding variables
 let botPath = [];
 let lastPathUpdateTime = 0;
 
@@ -42,6 +40,7 @@ function resizeCanvas() {
         tileSize = Math.floor(canvas.height / mazeGrid.length);
     }
 
+    // Keep the box collision boundaries accurate behind the scenes
     walls = [];
     for (let r = 0; r < mazeGrid.length; r++) {
         for (let c = 0; c < mazeGrid[r].length; c++) {
@@ -71,7 +70,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
 });
 
 function initGame() {
-    const playerRadius = Math.floor(tileSize * 0.35);
+    const playerRadius = Math.floor(tileSize * 0.32);
 
     players.push({
         id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
@@ -156,11 +155,7 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     visited[startGridY][startGridX] = true;
     
     let parentMap = {};
-
-    const directions = [
-        [0, -1], [0, 1], [-1, 0], [1, 0] // Up, Down, Left, Right
-    ];
-
+    const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
     let found = false;
 
     while (queue.length > 0) {
@@ -187,7 +182,6 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
 
     if (!found) return [];
 
-    // Reconstruct path backward
     let path = [];
     let currentKey = `${targetGridX},${targetGridY}`;
     let startKey = `${startGridX},${startGridY}`;
@@ -239,13 +233,10 @@ function gameLoop(timestamp) {
             let myGridX = Math.floor(me.x / tileSize);
             let myGridY = Math.floor(me.y / tileSize);
 
-            // Recalculate smart path every 400ms to save performance
             if (timestamp - lastPathUpdateTime > 400) {
                 if (bot.isIt) {
-                    // Tagger bot recalculates path toward the player
                     botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
                 } else {
-                    // Runner bot runs away to the furthest opposite open corner
                     let targetCornerX = myGridX < mazeGrid[0].length / 2 ? 13 : 1;
                     let targetCornerY = myGridY < mazeGrid.length / 2 ? 13 : 1;
                     botPath = findShortestPath(botGridX, botGridY, targetCornerX, targetCornerY);
@@ -253,7 +244,6 @@ function gameLoop(timestamp) {
                 lastPathUpdateTime = timestamp;
             }
 
-            // Follow calculated path node points
             if (botPath.length > 0) {
                 let targetNode = botPath[0];
                 let diffX = targetNode.x - bot.x;
@@ -270,7 +260,7 @@ function gameLoop(timestamp) {
                     if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
                     if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
                 } else {
-                    botPath.shift(); // Reached this corridor point, remove it
+                    botPath.shift();
                 }
             }
         }
@@ -285,19 +275,40 @@ function gameLoop(timestamp) {
                 p1.isIt = !p1.isIt;
                 p2.isIt = !p2.isIt;
                 tagCooldown = 3000; 
-                botPath = []; // Clear path to recalculate on switch
+                botPath = []; 
                 updateStatusText();
             }
         }
 
-        // Draw Maze Walls
-        ctx.fillStyle = '#34495e';
-        walls.forEach(wall => {
-            ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
-        });
+        // --- NEW ROUNDED SMOOTH WALL RENDERING ---
+        ctx.strokeStyle = '#34495e'; // Wall color
+        ctx.lineWidth = 16;          // 16px thickness line walls
+        ctx.lineCap = 'round';       // Smooth rounded ends
+        ctx.lineJoin = 'round';      // Smooth rounded intersections
+
+        for (let r = 0; r < mazeGrid.length; r++) {
+            for (let c = 0; c < mazeGrid[r].length; c++) {
+                if (mazeGrid[r][c] === 1) {
+                    let startX = c * tileSize + tileSize / 2;
+                    let startY = r * tileSize + tileSize / 2;
+
+                    // Check right neighbor
+                    if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(startX, startY);
+                        ctx.lineTo((c + 1) * tileSize + tileSize / 2, startY);
+                        ctx.stroke();
+                    }
+                    // Check bottom neighbor
+                    if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(startX, startY);
+                        ctx.lineTo(startX, (r + 1) * tileSize + tileSize / 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
 
         // Draw Players
         players.forEach(p => {
