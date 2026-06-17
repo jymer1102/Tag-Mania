@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 // CONNECT TO MULTIPLAYER SERVER 
 // (Swap "http://localhost:3000" with your live cloud URL when deployed!)
-const socket = io("https://jymer1102.github.io/Tag-Mania/");
+const socket = io("https://tag-mania.onrender.com");
 
 let myId = null;
 let myUsername = "Player";
