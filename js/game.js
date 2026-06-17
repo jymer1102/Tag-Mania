@@ -1,27 +1,66 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Game Management Properties
 let myUsername = "Player";
 let myChosenColor = "#007bff";
 let isPlaying = false;
-let tagCooldown = 0; // Cooldown timer track (milliseconds)
+let tagCooldown = 0; 
 let players = [];
 
-// Screen setup responsive sizing
+// Maze Grid Layout (1 = Wall, 0 = Empty Space)
+// An open design with lots of intersections so players can easily switch directions
+const mazeGrid = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
+    [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+let walls = [];
+let tileSize = 40; // Size of each maze block
+
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    
+    // Scale the maze tile size based on the screen width so it fits perfectly on phones
+    tileSize = Math.floor(canvas.width / mazeGrid[0].length);
+    if (tileSize * mazeGrid.length > canvas.height) {
+        tileSize = Math.floor(canvas.height / mazeGrid.length);
+    }
+
+    // Generate wall coordinate boxes based on the grid layout
+    walls = [];
+    for (let r = 0; r < mazeGrid.length; r++) {
+        for (let c = 0; c < mazeGrid[r].length; c++) {
+            if (mazeGrid[r][c] === 1) {
+                walls.push({
+                    x: c * tileSize,
+                    y: r * tileSize,
+                    width: tileSize,
+                    height: tileSize
+                });
+            }
+        }
+    }
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Handle Join Game action
 document.getElementById('start-btn').addEventListener('click', () => {
     const nameInput = document.getElementById('username-input').value.trim();
     if (nameInput) myUsername = nameInput;
-    
-    // Capture user color choice
     myChosenColor = document.getElementById('color-picker').value;
 
     document.getElementById('login-screen').style.display = 'none';
@@ -30,27 +69,28 @@ document.getElementById('start-btn').addEventListener('click', () => {
     initGame();
 });
 
-// Create entities on start
 function initGame() {
-    // Your Player Object with custom color choice
+    // Set character size dynamically to ensure they easily fit through corridors
+    const playerRadius = Math.floor(tileSize * 0.35);
+
+    // Spawn player in the upper-left open corridor area
     players.push({
-        id: 'me', name: myUsername, x: canvas.width / 3, y: canvas.height / 2, 
-        radius: 20, speed: 4, isIt: false, color: myChosenColor
+        id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
+        radius: playerRadius, speed: 3.5, isIt: false, color: myChosenColor
     });
 
-    // Test Opponent Object
+    // Spawn bot in the lower-right open corridor area
     players.push({
-        id: 'bot', name: 'Friend_Bot', x: (canvas.width / 3) * 2, y: canvas.height / 2, 
-        radius: 20, speed: 2.5, isIt: false, color: '#e0a800'
+        id: 'bot', name: 'Friend_Bot', x: tileSize * 13.5, y: tileSize * 13.5, 
+        radius: playerRadius, speed: 2.2, isIt: false, color: '#e0a800'
     });
 
-    // Choose random starting "It" player
     const randomPick = Math.floor(Math.random() * players.length);
     players[randomPick].isIt = true;
     updateStatusText();
 }
 
-// Mobile Touch Control / Joystick Implementation
+// Mobile Right-Side Joystick Setup
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -92,17 +132,22 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Fallback desktop keyboard configurations for quick testing
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowUp' || e.key === 'w') moveY = -1;
-    if (e.key === 'ArrowDown' || e.key === 's') moveY = 1;
-    if (e.key === 'ArrowLeft' || e.key === 'a') moveX = -1;
-    if (e.key === 'ArrowRight' || e.key === 'd') moveX = 1;
-});
-window.addEventListener('keyup', (e) => {
-    if (['ArrowUp','w','ArrowDown','s'].includes(e.key)) moveY = 0;
-    if (['ArrowLeft','a','ArrowRight','d'].includes(e.key)) moveX = 0;
-});
+// Precise Circle-vs-Box Collision Logic
+function checkWallCollision(player, nextX, nextY) {
+    for (let wall of walls) {
+        let closestX = Math.max(wall.x, Math.min(nextX, wall.x + wall.width));
+        let closestY = Math.max(wall.y, Math.min(nextY, wall.y + wall.height));
+
+        let distanceX = nextX - closestX;
+        let distanceY = nextY - closestY;
+        let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+
+        if (distanceSquared < (player.radius * player.radius)) {
+            return true; 
+        }
+    }
+    return false;
+}
 
 function updateStatusText() {
     const statusBox = document.getElementById('status-box');
@@ -114,14 +159,14 @@ function updateStatusText() {
     }
 }
 
-// Continuous Frame Loop Execution
 function gameLoop() {
     if (isPlaying) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Draw deep arena background color
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Process cooldown counters
         if (tagCooldown > 0) {
-            tagCooldown -= 16.66; // roughly 1 frame time step at 60Hz
+            tagCooldown -= 16.66;
             if (tagCooldown < 0) tagCooldown = 0;
             updateStatusText();
         }
@@ -129,11 +174,14 @@ function gameLoop() {
         let me = players.find(p => p.id === 'me');
         let bot = players.find(p => p.id === 'bot');
 
-        // Apply positions
-        me.x += moveX * me.speed;
-        me.y += moveY * me.speed;
+        // Process movement handling with independent axis sliding
+        let nextMeX = me.x + moveX * me.speed;
+        let nextMeY = me.y + moveY * me.speed;
+        
+        if (!checkWallCollision(me, nextMeX, me.y)) me.x = nextMeX;
+        if (!checkWallCollision(me, me.x, nextMeY)) me.y = nextMeY;
 
-        // Simple Automation Behavior for local testing simulation
+        // Bot path AI simulation
         if (bot) {
             let diffX = me.x - bot.x;
             let diffY = me.y - bot.y;
@@ -144,21 +192,16 @@ function gameLoop() {
                 let multiplier = bot.isIt ? 1 : -1;
                 
                 if (tagCooldown === 0 || !bot.isIt) {
-                    bot.x += dirX * bot.speed * multiplier;
-                    bot.y += dirY * bot.speed * multiplier;
+                    let nextBotX = bot.x + dirX * bot.speed * multiplier;
+                    let nextBotY = bot.y + dirY * bot.speed * multiplier;
+                    
+                    if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
+                    if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
                 }
             }
         }
 
-        // Limit objects to viewport bounds
-        players.forEach(p => {
-            if (p.x - p.radius < 0) p.x = p.radius;
-            if (p.x + p.radius > canvas.width) p.x = canvas.width - p.radius;
-            if (p.y - p.radius < 0) p.y = p.radius;
-            if (p.y + p.radius > canvas.height) p.y = canvas.height - p.radius;
-        });
-
-        // Run Collision validations (if no active cooldown)
+        // Tag checks (Player vs Player)
         if (tagCooldown === 0 && players.length > 1) {
             let p1 = players[0];
             let p2 = players[1];
@@ -167,35 +210,41 @@ function gameLoop() {
             if (dist < (p1.radius + p2.radius)) {
                 p1.isIt = !p1.isIt;
                 p2.isIt = !p2.isIt;
-                tagCooldown = 3000; // 3 seconds window activation
+                tagCooldown = 3000; 
                 updateStatusText();
             }
         }
 
-        // Draw active entities onto scene
+        // Draw Maze Walls
+        ctx.fillStyle = '#34495e';
+        walls.forEach(wall => {
+            ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
+        });
+
+        // Draw Players
         players.forEach(p => {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            // If they are It, they flash/display Red. Otherwise, display their custom selected color!
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
             ctx.fill();
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
             ctx.strokeStyle = '#fff';
             ctx.stroke();
             ctx.closePath();
 
-            // Display "IT" overhead label indicator
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.fillText('📢 IT', p.x - 12, p.y - p.radius - 22);
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillText('👑 IT', p.x, p.y - p.radius - 16);
             }
 
-            // Display customized user text handle
             ctx.fillStyle = '#fff';
-            ctx.font = '14px sans-serif';
+            ctx.font = '11px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(p.name, p.x, p.y - p.radius - 5);
+            ctx.fillText(p.name, p.x, p.y - p.radius - 4);
         });
     }
 
