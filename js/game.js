@@ -15,7 +15,7 @@ const mazeGrid = [
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Pac-Man portal row (Row 7)
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -131,7 +131,7 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// Precise Capsule Collision Check for perfect corner sliding
+// Precise Capsule Collision Check 
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -147,7 +147,6 @@ function checkLineCollision(px, py, radius, seg) {
 }
 
 function checkWallCollision(player, nextX, nextY) {
-    // Prevent border bounce inside the active wrap hallway
     if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
         if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
             return false;
@@ -162,7 +161,7 @@ function checkWallCollision(player, nextX, nextY) {
     return false;
 }
 
-// Re-mapped BFS Pathfinding supporting continuous wrapping nodes
+// Re-mapped BFS Pathfinding 
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     if (startGridX === targetGridX && startGridY === targetGridY) return [];
 
@@ -188,7 +187,6 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
             let nx = cx + dx;
             let ny = cy + dy;
 
-            // Global wrap connector inside the pathfinder array mapping
             if (ny === 7) {
                 if (nx < 0) nx = cols - 1;
                 if (nx >= cols) nx = 0;
@@ -250,7 +248,7 @@ function gameLoop(timestamp) {
         if (!checkWallCollision(me, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me, me.x, nextMeY)) me.y = nextMeY;
 
-        // Smart Evasive/Pursuit Pathfinding for the Bot
+        // Smart Bot Pathfinding Logic
         if (bot && (tagCooldown === 0 || !bot.isIt)) {
             let botGridX = Math.floor(bot.x / tileSize);
             let botGridY = Math.floor(bot.y / tileSize);
@@ -262,41 +260,66 @@ function gameLoop(timestamp) {
             myGridX = Math.max(0, Math.min(myGridX, mazeGrid[0].length - 1));
             myGridY = Math.max(0, Math.min(myGridY, mazeGrid.length - 1));
 
-            if (timestamp - lastPathUpdateTime > 350) {
-                if (bot.isIt) {
-                    botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
-                } else {
-                    let targetCornerX = myGridX < mazeGrid[0].length / 2 ? 13 : 1;
-                    let targetCornerY = myGridY < mazeGrid.length / 2 ? 13 : 1;
-                    botPath = findShortestPath(botGridX, botGridY, targetCornerX, targetCornerY);
-                }
-                lastPathUpdateTime = timestamp;
+            // Calculate distance between bot and player
+            let rawDiffX = me.x - bot.x;
+            let rawDiffY = me.y - bot.y;
+            
+            // Factor in portal wrapping for distance checks
+            let mazeWidth = mazeGrid[0].length * tileSize;
+            if (Math.abs(rawDiffX) > mazeWidth / 2) {
+                rawDiffX = rawDiffX > 0 ? rawDiffX - mazeWidth : rawDiffX + mazeWidth;
             }
+            let directDistanceToPlayer = Math.sqrt(rawDiffX * rawDiffX + rawDiffY * rawDiffY);
 
-            if (botPath.length > 0) {
-                let targetNode = botPath[0];
-                let diffX = targetNode.x - bot.x;
-                let diffY = targetNode.y - bot.y;
+            // --- FIXED BOT OVER-AVOIDANCE LUNGE ---
+            // If the bot is IT and close enough to tag you (within 1.8 corridors away), it lunges straight for you
+            if (bot.isIt && directDistanceToPlayer < tileSize * 1.8) {
+                let dirX = rawDiffX / directDistanceToPlayer;
+                let dirY = rawDiffY / directDistanceToPlayer;
+                
+                let lungeX = bot.x + dirX * bot.speed;
+                let lungeY = bot.y + dirY * bot.speed;
 
-                // Handle path directional wrapping across nodes seamlessly
-                let mazeWidth = mazeGrid[0].length * tileSize;
-                if (Math.abs(diffX) > mazeWidth / 2) {
-                    diffX = diffX > 0 ? diffX - mazeWidth : diffX + mazeWidth;
+                // Move directly toward you, only stopping if it hits a wall dead-on
+                if (!checkWallCollision(bot, lungeX, bot.y)) bot.x = lungeX;
+                if (!checkWallCollision(bot, bot.x, lungeY)) bot.y = lungeY;
+            } 
+            // Normal path navigation if too far away or running away
+            else {
+                if (timestamp - lastPathUpdateTime > 350) {
+                    if (bot.isIt) {
+                        botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
+                    } else {
+                        let targetCornerX = myGridX < mazeGrid[0].length / 2 ? 13 : 1;
+                        let targetCornerY = myGridY < mazeGrid.length / 2 ? 13 : 1;
+                        botPath = findShortestPath(botGridX, botGridY, targetCornerX, targetCornerY);
+                    }
+                    lastPathUpdateTime = timestamp;
                 }
 
-                let dist = Math.sqrt(diffX * diffX + diffY * diffY);
+                if (botPath.length > 0) {
+                    let targetNode = botPath[0];
+                    let diffX = targetNode.x - bot.x;
+                    let diffY = targetNode.y - bot.y;
 
-                if (dist > 4) {
-                    let dirX = diffX / dist;
-                    let dirY = diffY / dist;
-                    
-                    let nextBotX = bot.x + dirX * bot.speed;
-                    let nextBotY = bot.y + dirY * bot.speed;
+                    if (Math.abs(diffX) > mazeWidth / 2) {
+                        diffX = diffX > 0 ? diffX - mazeWidth : diffX + mazeWidth;
+                    }
 
-                    if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
-                    if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
-                } else {
-                    botPath.shift();
+                    let dist = Math.sqrt(diffX * diffX + diffY * diffY);
+
+                    if (dist > 4) {
+                        let dirX = diffX / dist;
+                        let dirY = diffY / dist;
+                        
+                        let nextBotX = bot.x + dirX * bot.speed;
+                        let nextBotY = bot.y + dirY * bot.speed;
+
+                        if (!checkWallCollision(bot, nextBotX, bot.y)) bot.x = nextBotX;
+                        if (!checkWallCollision(bot, bot.x, nextBotY)) bot.y = nextBotY;
+                    } else {
+                        botPath.shift();
+                    }
                 }
             }
         }
