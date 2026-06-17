@@ -90,12 +90,12 @@ canvas {
     font-weight: bold;
 }
 
-/* Onscreen Mobile Joystick - Positioned between map and bottom search bar */
+/* Onscreen Mobile Joystick - Positioned with a perfect gap below the maze */
 #joystick-zone { 
     position: absolute; 
-    bottom: 85px;       /* Raised it up higher to clear your bottom search bar */
-    right: 25px;        /* Tucked it slightly closer to the right edge for thumb comfort */
-    width: 110px;       /* Sized down just a tiny bit to fit the gap better */
+    bottom: 115px;      /* Perfect height to leave a nice gap below the maze */
+    right: 25px;        
+    width: 110px;       
     height: 110px; 
     background: rgba(255,255,255,0.2); 
     border-radius: 50%; 
