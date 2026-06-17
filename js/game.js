@@ -7,7 +7,6 @@ let isPlaying = false;
 let tagCooldown = 0; 
 let players = [];
 
-// Maze Grid Layout (1 = Wall, 0 = Empty Space)
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -16,7 +15,7 @@ const mazeGrid = [
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Open Pac-Man side tunnel
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Pac-Man portal row (Row 7)
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -26,7 +25,6 @@ const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
-// Instead of square boxes, we store exact Line Segments (p1 to p2)
 let wallSegments = [];
 let tileSize = 40; 
 const wallThickness = 16; 
@@ -43,7 +41,6 @@ function resizeCanvas() {
         tileSize = Math.floor(canvas.height / mazeGrid.length);
     }
 
-    // Generate line segments based on connected grid points
     wallSegments = [];
     for (let r = 0; r < mazeGrid.length; r++) {
         for (let c = 0; c < mazeGrid[r].length; c++) {
@@ -51,11 +48,9 @@ function resizeCanvas() {
                 let startX = c * tileSize + tileSize / 2;
                 let startY = r * tileSize + tileSize / 2;
 
-                // Right neighbor connection
                 if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
                     wallSegments.push({ x1: startX, y1: startY, x2: (c + 1) * tileSize + tileSize / 2, y2: startY });
                 }
-                // Bottom neighbor connection
                 if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
                     wallSegments.push({ x1: startX, y1: startY, x2: startX, y2: (r + 1) * tileSize + tileSize / 2 });
                 }
@@ -78,7 +73,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
 });
 
 function initGame() {
-    const playerRadius = Math.floor(tileSize * 0.30);
+    const playerRadius = Math.floor(tileSize * 0.28);
 
     players.push({
         id: 'me', name: myUsername, x: tileSize * 1.5, y: tileSize * 1.5, 
@@ -95,7 +90,7 @@ function initGame() {
     updateStatusText();
 }
 
-// Onscreen Joystick Setup
+// Onscreen Joystick controls
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -114,7 +109,6 @@ joystickZone.addEventListener('touchstart', (e) => {
 window.addEventListener('touchmove', (e) => {
     if (!joystickActive) return;
     const touch = e.touches[0];
-    
     let deltaX = touch.clientX - joystickStartX;
     let deltaY = touch.clientY - joystickStartY;
     let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -137,27 +131,25 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// --- NEW SMOOTH LINE & CAPS COLLISION LOGIC ---
+// Precise Capsule Collision Check for perfect corner sliding
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
 
-    // Find closest point projection on the line segment
     let t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
-    t = Math.max(0, Math.min(1, t)); // Clamp to segment boundaries
+    t = Math.max(0, Math.min(1, t)); 
 
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
 
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    // Collision triggers if player edge penetrates the line's thickness radius
-    return dist < (radius + (wallThickness / 2) - 1); 
+    return dist < (radius + (wallThickness / 2) - 0.5); 
 }
 
 function checkWallCollision(player, nextX, nextY) {
-    // Let players pass freely through the Pac-Man wrap rows on the edges
-    if (nextY > tileSize * 6.5 && nextY < tileSize * 8.5) {
-        if (nextX < tileSize || nextX > canvas.width - tileSize) {
+    // Prevent border bounce inside the active wrap hallway
+    if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
+        if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
             return false;
         }
     }
@@ -170,12 +162,14 @@ function checkWallCollision(player, nextX, nextY) {
     return false;
 }
 
-// BFS Pathfinding Algorithm for Bot
+// Re-mapped BFS Pathfinding supporting continuous wrapping nodes
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     if (startGridX === targetGridX && startGridY === targetGridY) return [];
 
+    let cols = mazeGrid[0].length;
+    let rows = mazeGrid.length;
     let queue = [[startGridX, startGridY]];
-    let visited = Array(mazeGrid.length).fill().map(() => Array(mazeGrid[0].length).fill(false));
+    let visited = Array(rows).fill().map(() => Array(cols).fill(false));
     visited[startGridY][startGridX] = true;
     
     let parentMap = {};
@@ -194,12 +188,13 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
             let nx = cx + dx;
             let ny = cy + dy;
 
+            // Global wrap connector inside the pathfinder array mapping
             if (ny === 7) {
-                if (nx < 0) nx = mazeGrid[0].length - 1;
-                if (nx >= mazeGrid[0].length) nx = 0;
+                if (nx < 0) nx = cols - 1;
+                if (nx >= cols) nx = 0;
             }
 
-            if (ny >= 0 && ny < mazeGrid.length && nx >= 0 && nx < mazeGrid[0].length) {
+            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols) {
                 if (!visited[ny][nx] && mazeGrid[ny][nx] === 0) {
                     visited[ny][nx] = true;
                     parentMap[`${nx},${ny}`] = `${cx},${cy}`;
@@ -248,14 +243,14 @@ function gameLoop(timestamp) {
         let me = players.find(p => p.id === 'me');
         let bot = players.find(p => p.id === 'bot');
 
-        // Move Player with independent axis sliding
+        // Move Player
         let nextMeX = me.x + moveX * me.speed;
         let nextMeY = me.y + moveY * me.speed;
         
         if (!checkWallCollision(me, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me, me.x, nextMeY)) me.y = nextMeY;
 
-        // Smart Bot Pathfinding Logic
+        // Smart Evasive/Pursuit Pathfinding for the Bot
         if (bot && (tagCooldown === 0 || !bot.isIt)) {
             let botGridX = Math.floor(bot.x / tileSize);
             let botGridY = Math.floor(bot.y / tileSize);
@@ -267,7 +262,7 @@ function gameLoop(timestamp) {
             myGridX = Math.max(0, Math.min(myGridX, mazeGrid[0].length - 1));
             myGridY = Math.max(0, Math.min(myGridY, mazeGrid.length - 1));
 
-            if (timestamp - lastPathUpdateTime > 400) {
+            if (timestamp - lastPathUpdateTime > 350) {
                 if (bot.isIt) {
                     botPath = findShortestPath(botGridX, botGridY, myGridX, myGridY);
                 } else {
@@ -282,6 +277,13 @@ function gameLoop(timestamp) {
                 let targetNode = botPath[0];
                 let diffX = targetNode.x - bot.x;
                 let diffY = targetNode.y - bot.y;
+
+                // Handle path directional wrapping across nodes seamlessly
+                let mazeWidth = mazeGrid[0].length * tileSize;
+                if (Math.abs(diffX) > mazeWidth / 2) {
+                    diffX = diffX > 0 ? diffX - mazeWidth : diffX + mazeWidth;
+                }
+
                 let dist = Math.sqrt(diffX * diffX + diffY * diffY);
 
                 if (dist > 4) {
@@ -299,17 +301,17 @@ function gameLoop(timestamp) {
             }
         }
 
-        // Pac-Man Warp Checks
+        // Pac-Man Teleportation Logic
         players.forEach(p => {
             let mazeWidth = mazeGrid[0].length * tileSize;
-            if (p.x > mazeWidth) p.x = 0;
-            else if (p.x < 0) p.x = mazeWidth;
+            if (p.x > mazeWidth) p.x = p.x - mazeWidth;
+            else if (p.x < 0) p.x = p.x + mazeWidth;
 
             if (p.y - p.radius < 0) p.y = p.radius;
             if (p.y + p.radius > canvas.height) p.y = canvas.height - p.radius;
         });
 
-        // Tag checks (Player vs Player)
+        // Player Tag Logic
         if (tagCooldown === 0 && players.length > 1) {
             let p1 = players[0];
             let p2 = players[1];
@@ -324,8 +326,8 @@ function gameLoop(timestamp) {
             }
         }
 
-        // --- DRAW SMOOTH WHITE LINES ---
-        ctx.strokeStyle = '#ffffff'; // Swapped to pure clean white lines
+        // Render pure white lines
+        ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
         ctx.lineJoin = 'round';      
