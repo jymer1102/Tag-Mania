@@ -1,114 +1,124 @@
-* { 
-    box-sizing: border-box; 
-    margin: 0; 
-    padding: 0; 
-    user-select: none; 
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-body { 
-    font-family: sans-serif; 
-    background: #222; 
-    overflow: hidden; 
-    touch-action: none; 
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #111;
+    font-family: sans-serif;
 }
 
-/* Login Screen layout */
 #login-screen {
-    position: absolute; 
-    width: 100%; 
-    height: 100%; 
-    background: #333;
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center; 
-    z-index: 10;
-}
-
-#login-screen h1 { 
-    color: #fff; 
-    margin-bottom: 20px; 
-}
-
-.input-group {
-    margin-bottom: 15px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     text-align: center;
+    background: rgba(20, 20, 20, 0.95);
+    padding: 30px;
+    border-radius: 12px;
+    border: 2px solid #333;
+    z-index: 10;
+    width: 90%;
+    max-width: 360px;
 }
 
-#username-input { 
-    padding: 10px; 
-    font-size: 18px; 
-    border-radius: 5px; 
-    border: none; 
-    text-align: center; 
+#login-screen h1 {
+    color: #fff;
+    font-size: 2rem;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
 }
 
-#color-picker {
-    width: 60px;
-    height: 40px;
+#status-box {
+    color: #ffc107;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+#username-input {
+    width: 100%;
+    padding: 12px;
+    background: #222;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 1rem;
+    text-align: center;
+    outline: none;
+    margin-bottom: 10px;
+}
+
+#start-btn {
+    width: 100%;
+    padding: 12px;
+    background: #28a745;
     border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    background: transparent;
-}
-
-#start-btn { 
-    padding: 10px 20px; 
-    font-size: 18px; 
-    background: #28a745; 
-    color: white; 
-    border: none; 
-    border-radius: 5px; 
-    cursor: pointer; 
-    margin-top: 10px;
-}
-
-/* Game Arena and Heads-Up Display */
-#game-container { 
-    display: none; 
-    width: 100vw; 
-    height: 100vh; 
-    position: relative; 
-}
-
-canvas { 
-    background: #34495e; 
-    display: block; 
-    width: 100%; 
-    height: 100%; 
-}
-
-#status-box { 
-    position: absolute; 
-    top: 10px; 
-    left: 10px; 
-    color: white; 
-    background: rgba(0,0,0,0.6); 
-    padding: 8px; 
-    border-radius: 5px; 
-    font-size: 14px; 
+    color: white;
+    font-size: 1.1rem;
     font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-/* Onscreen Mobile Joystick - Positioned with a perfect gap below the maze */
-#joystick-zone { 
-    position: absolute; 
-    bottom: 115px;      /* Perfect height to leave a nice gap below the maze */
-    right: 25px;        
-    width: 110px;       
-    height: 110px; 
-    background: rgba(255,255,255,0.2); 
-    border-radius: 50%; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* System Notifications Overlay Box */
+#notification-box {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 5;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile Touch Controls */
+#joystick-zone {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     z-index: 5;
 }
 
-#joystick-stick { 
-    width: 50px; 
-    height: 50px; 
-    background: rgba(255,255,255,0.6); 
-    border-radius: 50%; 
-    position: absolute; 
+#joystick-stick {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    transition: transform 0.05s linear;
 }
