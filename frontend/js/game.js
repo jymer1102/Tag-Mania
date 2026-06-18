@@ -2,7 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONNECT TO MULTIPLAYER SERVER ---
-const socket = io("https://tag-mania-server.onrender.com");
+const socket = io("https://tag-mania.onrender.com");
 
 let myId = null;
 let myUsername = "Player";
