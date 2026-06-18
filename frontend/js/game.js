@@ -2,8 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONNECT TO MULTIPLAYER SERVER ---
-// Replace the URL below with your exact live Render Web Service URL link!
-const socket = io("https://tag-mania.onrender.com");
+const socket = io("https://tag-mania-server.onrender.com");
 
 let myId = null;
 let myUsername = "Player";
@@ -33,6 +32,7 @@ const mazeGrid = [
 let wallSegments = [];
 let tileSize = 40; 
 const wallThickness = 16; 
+const FIXED_RADIUS = 14; // Matches the bot size perfectly!
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -63,7 +63,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Joystick Config
+// Joystick Setup
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -129,16 +129,10 @@ function checkWallCollision(radius, nextX, nextY) {
     return false;
 }
 
-// --- NETWORK HANDSHAKES ---
 socket.on('connect', () => {
     myId = socket.id;
     const statusBox = document.getElementById('status-box');
     if(statusBox) statusBox.innerText = "Connected! Click Join.";
-});
-
-socket.on('connect_error', () => {
-    const statusBox = document.getElementById('status-box');
-    if(statusBox) statusBox.innerText = "Connection failed. Retrying...";
 });
 
 socket.on('syncPlayers', (serverPlayers) => {
@@ -149,22 +143,17 @@ socket.on('syncCooldown', (cooldownTime) => {
     tagCooldown = cooldownTime;
 });
 
-// Trigger Notification UI Alerts
 socket.on('systemMessage', (msg) => {
     const notifyBox = document.getElementById('notification-box');
     if (notifyBox) {
         notifyBox.innerText = msg;
         notifyBox.style.opacity = "1";
-        
-        // Hide overlay alert smoothly after 3.5 seconds
-        setTimeout(() => {
-            notifyBox.style.opacity = "0";
-        }, 3500);
+        setTimeout(() => { notifyBox.style.opacity = "0"; }, 3500);
     }
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    if (!myId) return alert("Still connecting to server... give it a moment.");
+    if (!myId) return alert("Connecting to server...");
     const nameInput = document.getElementById('username-input').value.trim();
     if (nameInput) myUsername = nameInput;
     myChosenColor = document.getElementById('color-picker').value;
@@ -175,7 +164,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
     socket.emit('playerJoin', {
         name: myUsername,
         color: myChosenColor,
-        radius: Math.floor(tileSize * 0.28)
+        radius: FIXED_RADIUS
     });
     isPlaying = true;
 });
@@ -187,8 +176,9 @@ function gameLoop() {
 
         let me = players[myId];
 
-        let nextMeX = me.x + moveX * 3.5;
-        let nextMeY = me.y + moveY * 3.5;
+        // Process movement input locally
+        let nextMeX = me.x + moveX * 4;
+        let nextMeY = me.y + moveY * 4;
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
@@ -200,37 +190,23 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Push positions to background engine
+        // Push calculated position smoothly to server
         socket.emit('playerMove', { x: me.x, y: me.y });
 
-        // Let human 'IT' client run hit-box tracking checks
-        if (me.isIt && tagCooldown === 0) {
-            for (let id in players) {
-                if (id !== myId) {
-                    let p2 = players[id];
-                    let dist = Math.sqrt((me.x - p2.x)**2 + (me.y - p2.y)**2);
-                    if (dist < (me.radius + p2.radius)) {
-                        socket.emit('tagCollision', { taggedId: id });
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Top Status Header Strings
+        // Update Header Dynamic Alert Message texts
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
         
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             if (tagCooldown > 0) {
-                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s | ${currentItName} is IT!`;
+                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
             } else {
                 statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
             }
         }
 
-        // Draw Map Geometry
+        // Draw Walls
         ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
@@ -243,7 +219,7 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Frame Render Loops for Online Avatars
+        // Render Avatars
         for (let id in players) {
             let p = players[id];
             ctx.beginPath();
