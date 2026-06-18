@@ -15,6 +15,7 @@ let activePlayers = {};
 let tagCooldown = 0;
 const BOT_ID = "SERVER_BOT_999";
 const FIXED_RADIUS = 14; 
+const wallThickness = 16;
 
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -24,7 +25,7 @@ const mazeGrid = [
     [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // Center lane containing portals
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
@@ -34,13 +35,12 @@ const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 const tileSize = 40;
-const MAP_SIZE = 15 * tileSize; // 600
+const MAP_SIZE = 15 * tileSize;
 
 const DIRECTIONS = [
     {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}
 ];
 
-// PORTAL-AWARE BFS PATHFINDING
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     if (startGridX === targetGridX && startGridY === targetGridY) return [];
     
@@ -48,7 +48,6 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     let visited = Array(mazeGrid.length).fill(null).map(() => Array(mazeGrid[0].length).fill(false));
     let parentMap = {};
 
-    // Safeguard grid bounds before searching
     startGridX = Math.max(0, Math.min(14, startGridX));
     startGridY = Math.max(0, Math.min(14, startGridY));
     visited[startGridY][startGridX] = true;
@@ -72,13 +71,12 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
             let nx = cx + dir.x;
             let ny = cy + dir.y;
 
-            // TRACK SEAMLESS PORTAL WRAPS WITHIN THE RADAR LOGIC
             if (ny === 7) {
                 if (nx < 0) nx = 14;
                 if (nx > 14) nx = 0;
             }
 
-            if (nx >= 0 && nx < 14 && ny >= 0 && ny < 14) {
+            if (nx >= 0 && nx < 15 && ny >= 0 && ny < 15) {
                 if (mazeGrid[ny][nx] === 0 && !visited[ny][nx]) {
                     visited[ny][nx] = true;
                     parentMap[`${nx},${ny}`] = { current: {x: nx, y: ny}, parentKey: `${cx},${cy}` };
@@ -110,22 +108,17 @@ function handleBotSpawningAndRemoval() {
     }
 }
 
+// SERVER EXTRACTED PERFECT CAPSULE CORNER EVALUATOR
 function checkBotWallCollision(x, y, radius) {
-    // True capsule corner padding calculation to eliminate stickiness
-    let buffer = radius - 1.5; 
-    let checkPoints = [
-        {x: x - buffer, y: y}, {x: x + buffer, y: y},
-        {x: x, y: y - buffer}, {x: x, y: y + buffer}
-    ];
-    for (let pt of checkPoints) {
-        let gX = Math.floor(pt.x / tileSize);
-        let gY = Math.floor(pt.y / tileSize);
-        
-        // Exclude portal track lines from collision boundaries
-        if (gY === 7 && (gX < 0 || gX >= 15)) continue; 
-        
-        if (gY < 0 || gY >= mazeGrid.length || gX < 0 || gX >= mazeGrid[0].length || mazeGrid[gY][gX] === 1) {
-            return true;
+    let buffer = radius + (wallThickness / 2) - 0.5;
+    for (let r = 0; r < mazeGrid.length; r++) {
+        for (let c = 0; c < mazeGrid[r].length; c++) {
+            if (mazeGrid[r][c] === 1) {
+                let wX = c * tileSize + tileSize / 2;
+                let wY = r * tileSize + tileSize / 2;
+                let dist = Math.sqrt((x - wX)**2 + (y - wY)**2);
+                if (dist < buffer) return true;
+            }
         }
     }
     return false;
@@ -135,15 +128,19 @@ io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
         activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
         handleBotSpawningAndRemoval();
+        // FEED BACK ACTIVITY MESSAGE
+        io.emit('systemMessage', `📢 ${activePlayers[socket.id].name} joined the arena!`);
         io.emit('syncPlayers', activePlayers);
     });
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
+            // Block position uploads during 3-second freeze suspensions
+            if (activePlayers[socket.id].isIt && tagCooldown > 0) return;
+
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
             
-            // Check human tag mechanics
             if (activePlayers[socket.id].isIt && tagCooldown === 0) {
                 for (let id in activePlayers) {
                     if (id !== socket.id) {
@@ -152,7 +149,8 @@ io.on('connection', (socket) => {
                         if (dist < (FIXED_RADIUS * 2)) {
                             activePlayers[socket.id].isIt = false;
                             target.isIt = true;
-                            tagCooldown = 3000;
+                            tagCooldown = 3000; // 3-second freeze trigger
+                            io.emit('systemMessage', `💥 ${activePlayers[socket.id].name} tagged ${target.name}! 3s FREEZE!`);
                             io.emit('syncCooldown', tagCooldown);
                             break;
                         }
@@ -164,7 +162,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        if (activePlayers[socket.id]) delete activePlayers[socket.id];
+        if (activePlayers[socket.id]) {
+            io.emit('systemMessage', `❌ ${activePlayers[socket.id].name} left.`);
+            delete activePlayers[socket.id];
+        }
         handleBotSpawningAndRemoval();
         io.emit('syncPlayers', activePlayers);
     });
@@ -188,69 +189,76 @@ setInterval(() => {
             }
         }
 
-        let currentSpeed = 4.2; 
-        let isLunging = (bot.isIt && targetPlayer && minDist < 160);
+        // 3-SECOND IMMOBILIZATION SUSPENSION: Speed is 0 if bot is IT and cooldown is active
+        let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 4.2; 
+        let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160);
 
-        if (isLunging && targetPlayer) {
-            // LUNGE MODE
-            let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
-            let nextX = bot.x + Math.cos(angleToTarget) * currentSpeed;
-            let nextY = bot.y + Math.sin(angleToTarget) * currentSpeed;
+        if (currentSpeed > 0) {
+            if (isLunging && targetPlayer) {
+                // CHASE LUNGE MODE
+                let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
+                let nextX = bot.x + Math.cos(angleToTarget) * currentSpeed;
+                let nextY = bot.y + Math.sin(angleToTarget) * currentSpeed;
 
-            if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
-                bot.x = nextX; bot.y = nextY;
-            } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
-                bot.x = nextX;
-            } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
-                bot.y = nextY;
-            }
-        } else {
-            // NODE PATH NAVIGATION MODE WITH PORTAL WRAPPING SUPPORT
-            let botGridX = Math.floor(bot.x / tileSize);
-            let botGridY = Math.floor(bot.y / tileSize);
-            
-            let destGridX = 1;
-            let destGridY = 1;
-
-            if (targetPlayer) {
-                destGridX = Math.floor(targetPlayer.x / tileSize);
-                destGridY = Math.floor(targetPlayer.y / tileSize);
-            }
-
-            let path = findShortestPath(botGridX, botGridY, destGridX, destGridY);
-
-            if (path.length > 0) {
-                let nextNode = path[0];
-                let trackTargetX = nextNode.x * tileSize + tileSize / 2;
-                let trackTargetY = nextNode.y * tileSize + tileSize / 2;
-
-                // Handle sliding alignment changes smoothly across portal wraps
-                if (Math.abs(trackTargetX - bot.x) > 300) {
-                    if (bot.x < trackTargetX) bot.x -= currentSpeed;
-                    else bot.x += currentSpeed;
-                } else {
-                    let angle = Math.atan2(trackTargetY - bot.y, trackTargetX - bot.x);
-                    bot.x += Math.cos(angle) * currentSpeed;
-                    bot.y += Math.sin(angle) * currentSpeed;
+                if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+                    bot.x = nextX; bot.y = nextY;
+                } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
+                    bot.x = nextX;
+                } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
+                    bot.y = nextY;
                 }
             } else {
-                bot.x += bot.dirX * currentSpeed;
-                bot.y += bot.dirY * currentSpeed;
+                // FLEE OR PATROL NAVIGATION MODE
+                let botGridX = Math.floor(bot.x / tileSize);
+                let botGridY = Math.floor(bot.y / tileSize);
+                
+                let destGridX = 1;
+                let destGridY = 1;
+
+                // BOT RUNS AWAY INSTEAD OF CHASING IF YOU ARE IT
+                if (targetPlayer && !bot.isIt) {
+                    destGridX = targetPlayer.x > 300 ? 1 : 13;
+                    destGridY = targetPlayer.y > 300 ? 1 : 13;
+                } else if (targetPlayer) {
+                    destGridX = Math.floor(targetPlayer.x / tileSize);
+                    destGridY = Math.floor(targetPlayer.y / tileSize);
+                }
+
+                let path = findShortestPath(botGridX, botGridY, destGridX, destGridY);
+
+                if (path.length > 0) {
+                    let nextNode = path[0];
+                    let trackTargetX = nextNode.x * tileSize + tileSize / 2;
+                    let trackTargetY = nextNode.y * tileSize + tileSize / 2;
+
+                    if (Math.abs(trackTargetX - bot.x) > 300) {
+                        if (bot.x < trackTargetX) bot.x -= currentSpeed;
+                        else bot.x += currentSpeed;
+                    } else {
+                        let angle = Math.atan2(trackTargetY - bot.y, trackTargetX - bot.x);
+                        bot.x += Math.cos(angle) * currentSpeed;
+                        bot.y += Math.sin(angle) * currentSpeed;
+                    }
+                } else {
+                    bot.x += bot.dirX * currentSpeed;
+                    bot.y += bot.dirY * currentSpeed;
+                }
             }
         }
 
-        // PHYSICAL SCREEN WRAPPING SYSTEM FOR THE PORTALS
         if (bot.x > MAP_SIZE) bot.x -= MAP_SIZE;
         if (bot.x < 0) bot.x += MAP_SIZE;
 
-        // Bot Tag Verification checks
+        // Verify Bot Tag Mechanics
         if (bot.isIt && tagCooldown === 0) {
             for (let id in activePlayers) {
                 if (id !== BOT_ID) {
                     let p = activePlayers[id];
                     let dist = Math.sqrt((bot.x - p.x)**2 + (bot.y - p.y)**2);
                     if (dist < (FIXED_RADIUS * 2)) {
-                        bot.isIt = false; p.isIt = true; tagCooldown = 3000;
+                        bot.isIt = false; p.isIt = true; 
+                        tagCooldown = 3000; // 3-second freeze trigger
+                        io.emit('systemMessage', `💥 Bot tagged ${p.name}! 3s FREEZE!`);
                         io.emit('syncCooldown', tagCooldown);
                         break;
                     }
