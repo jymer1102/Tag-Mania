@@ -35,14 +35,11 @@ const wallThickness = 16;
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
-    // Determine maximum safe layout bounding dimension
     let size = Math.min(window.innerWidth, window.innerHeight * 0.60);
     
-    // Hard limit dimensions internally
     canvas.width = size;
     canvas.height = size;
     
-    // CRITICAL: Force CSS layout engine styles to obey the square dimensions
     canvas.style.width = size + "px";
     canvas.style.height = size + "px";
     canvas.style.maxHeight = size + "px";
@@ -118,6 +115,7 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
+// CAPSULE COLLISION MECHANIC: Calculates distances perfectly from rounded segment ends
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -126,7 +124,8 @@ function checkLineCollision(px, py, radius, seg) {
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    return dist < (radius + (wallThickness / 2) - 1.0); 
+    // Dynamic rounding tolerance for silky smooth wall gliding
+    return dist < (radius + (wallThickness / 2) - 0.5); 
 }
 
 function checkWallCollision(radius, nextX, nextY) {
