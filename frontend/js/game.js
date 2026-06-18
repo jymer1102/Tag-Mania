@@ -35,13 +35,11 @@ const wallThickness = 16;
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
-    // Force the square to stick strictly to the top layout bounds
     let size = Math.min(window.innerWidth, window.innerHeight * 0.65);
     
     canvas.width = size;
     canvas.height = size;
     
-    // Style adjustments to pin it to the top center
     canvas.style.display = "block";
     canvas.style.margin = "0 auto";
 
@@ -67,7 +65,6 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Joystick Position (Unchanged position)
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 
@@ -114,7 +111,6 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// High-precision geometric collision tracking for round hitboxes
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -123,7 +119,6 @@ function checkLineCollision(px, py, radius, seg) {
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    // Added 1px padding for pixel-perfect wall glide hitboxes
     return dist < (radius + (wallThickness / 2) - 1.0); 
 }
 
