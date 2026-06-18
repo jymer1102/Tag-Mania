@@ -38,16 +38,15 @@ const tileSize = 40;
 function handleBotSpawningAndRemoval() {
     let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
     
-    // Force the practice bot to appear and be IT if you are alone
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
             name: "🤖 Practice Bot",
             color: "#6c757d",
-            x: 100,
-            y: 100,
+            x: 300, // SAFE CORRIDOR SPAWN (Out of the wall!)
+            y: 60,
             radius: FIXED_RADIUS,
-            isIt: true, // Crucial: Bot is spawned as the tagger!
+            isIt: true, 
             angle: Math.random() * Math.PI * 2
         };
         if(humanIds.length === 1) {
@@ -82,7 +81,7 @@ io.on('connection', (socket) => {
             id: socket.id,
             name: data.name || "Player",
             color: data.color || "#007bff",
-            x: 60, // Safe pathway spawn location coordinate
+            x: 60, 
             y: 60,
             radius: FIXED_RADIUS,
             isIt: false
@@ -98,7 +97,6 @@ io.on('connection', (socket) => {
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
             
-            // Server checks if you tagged another human player
             if (activePlayers[socket.id].isIt && tagCooldown === 0) {
                 for (let id in activePlayers) {
                     if (id !== socket.id) {
@@ -149,7 +147,6 @@ setInterval(() => {
             bot.angle = Math.random() * Math.PI * 2;
         }
 
-        // Server checks if the bot successfully tagged you
         if (bot.isIt && tagCooldown === 0) {
             for (let id in activePlayers) {
                 if (id !== BOT_ID) {
