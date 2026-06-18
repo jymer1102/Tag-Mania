@@ -35,17 +35,16 @@ const wallThickness = 16;
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
-    // 1. Find the maximum safe layout space (leaving the bottom 30% for joystick)
-    let maxWidth = window.innerWidth;
-    let maxHeight = window.innerHeight * 0.70;
-
-    // 2. FORCE IT TO BE A PERFECT SQUARE (Stops any vertical stretching!)
-    let size = Math.min(maxWidth, maxHeight);
+    // Force the square to stick strictly to the top layout bounds
+    let size = Math.min(window.innerWidth, window.innerHeight * 0.65);
     
     canvas.width = size;
     canvas.height = size;
     
-    // 3. Keep standard grid calculations synced with backend map
+    // Style adjustments to pin it to the top center
+    canvas.style.display = "block";
+    canvas.style.margin = "0 auto";
+
     tileSize = size / mazeGrid[0].length;
 
     wallSegments = [];
@@ -68,7 +67,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Precise Center Joystick Setup
+// Joystick Position (Unchanged position)
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 
@@ -115,6 +114,7 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
+// High-precision geometric collision tracking for round hitboxes
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -123,7 +123,8 @@ function checkLineCollision(px, py, radius, seg) {
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    return dist < (radius + (wallThickness / 2) - 0.5); 
+    // Added 1px padding for pixel-perfect wall glide hitboxes
+    return dist < (radius + (wallThickness / 2) - 1.0); 
 }
 
 function checkWallCollision(radius, nextX, nextY) {
@@ -148,7 +149,6 @@ socket.on('connect', () => {
 
 socket.on('syncPlayers', (serverPlayers) => {
     for (let id in serverPlayers) {
-        // Adapt server scaling factor back to dynamic mobile sizes smoothly
         let ratioX = serverPlayers[id].x / (15 * 40);
         let ratioY = serverPlayers[id].y / (15 * 40);
 
@@ -192,7 +192,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // Set initial position safely in a path
     let spawnPixel = tileSize * 1.5;
     players[myId] = {
         id: myId,
@@ -219,10 +218,9 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // Process smooth input
         let speedMultiplier = canvas.width / (15 * 40);
-        let nextMeX = me.x + (moveX * 4.5 * speedMultiplier);
-        let nextMeY = me.y + (moveY * 4.5 * speedMultiplier);
+        let nextMeX = me.x + (moveX * 4.2 * speedMultiplier);
+        let nextMeY = me.y + (moveY * 4.2 * speedMultiplier);
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
@@ -233,7 +231,6 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Normalize data structures before firing over websockets to prevent cross-device issues
         let uploadX = (me.x / canvas.width) * (15 * 40);
         let uploadY = (me.y / canvas.height) * (15 * 40);
         socket.emit('playerMove', { x: uploadX, y: uploadY });
@@ -252,7 +249,7 @@ function gameLoop() {
 
         // Draw Walls
         ctx.strokeStyle = '#ffffff'; 
-        ctx.lineWidth = wallThickness * (canvas.width / 600); // Scale thickness safely         
+        ctx.lineWidth = wallThickness * (canvas.width / 600);          
         ctx.lineCap = 'round';       
         ctx.lineJoin = 'round';      
 
@@ -263,7 +260,7 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Render Avatars perfectly circular
+        // Render Avatars
         for (let id in players) {
             let p = players[id];
             ctx.beginPath();
