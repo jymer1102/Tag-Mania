@@ -38,7 +38,7 @@ const tileSize = 40;
 function handleBotSpawningAndRemoval() {
     let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
     
-    // If only 1 human is left active, pull out the training bot!
+    // Force the practice bot to appear and be IT if you are alone
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
@@ -47,15 +47,13 @@ function handleBotSpawningAndRemoval() {
             x: 100,
             y: 100,
             radius: FIXED_RADIUS,
-            isIt: true,
+            isIt: true, // Crucial: Bot is spawned as the tagger!
             angle: Math.random() * Math.PI * 2
         };
-        // Ensure someone is designated IT
         if(humanIds.length === 1) {
             activePlayers[humanIds[0]].isIt = false;
         }
     } 
-    // If multiple real players show up, remove the practice bot
     else if (humanIds.length > 1 && activePlayers[BOT_ID]) {
         delete activePlayers[BOT_ID];
         io.emit('systemMessage', "🤖 Training Bot left. Real match active!");
@@ -84,8 +82,8 @@ io.on('connection', (socket) => {
             id: socket.id,
             name: data.name || "Player",
             color: data.color || "#007bff",
-            x: 220,
-            y: 220,
+            x: 60, // Safe pathway spawn location coordinate
+            y: 60,
             radius: FIXED_RADIUS,
             isIt: false
         };
@@ -100,7 +98,7 @@ io.on('connection', (socket) => {
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
             
-            // Real-time Tag Collision Evaluation
+            // Server checks if you tagged another human player
             if (activePlayers[socket.id].isIt && tagCooldown === 0) {
                 for (let id in activePlayers) {
                     if (id !== socket.id) {
@@ -151,7 +149,7 @@ setInterval(() => {
             bot.angle = Math.random() * Math.PI * 2;
         }
 
-        // Bot Tagging Logic
+        // Server checks if the bot successfully tagged you
         if (bot.isIt && tagCooldown === 0) {
             for (let id in activePlayers) {
                 if (id !== BOT_ID) {
