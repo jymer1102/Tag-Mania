@@ -95,7 +95,6 @@ function handleBotSpawningAndRemoval() {
             id: BOT_ID,
             name: "🤖 Practice Bot",
             color: "#6c757d",
-            // OPPOSITE CORNER SPAWN: Spawn at bottom right (540, 540)
             x: 540, 
             y: 540,
             radius: FIXED_RADIUS,
@@ -109,15 +108,21 @@ function handleBotSpawningAndRemoval() {
     }
 }
 
+// EXACT BOUNDARY CALCULATOR TO PREVENT BOT CLIPPING
 function checkBotWallCollision(x, y, radius) {
-    let buffer = radius + (wallThickness / 2) - 0.5;
-    for (let r = 0; r < mazeGrid.length; r++) {
-        for (let c = 0; c < mazeGrid[r].length; c++) {
-            if (mazeGrid[r][c] === 1) {
-                let wX = c * tileSize + tileSize / 2;
-                let wY = r * tileSize + tileSize / 2;
-                let dist = Math.sqrt((x - wX)**2 + (y - wY)**2);
-                if (dist < buffer) return true;
+    let checkRadius = radius + (wallThickness / 2) - 1.0;
+    let cellX = Math.floor(x / tileSize);
+    let cellY = Math.floor(y / tileSize);
+
+    for (let r = cellY - 1; r <= cellY + 1; r++) {
+        for (let c = cellX - 1; c <= cellX + 1; c++) {
+            if (r >= 0 && r < mazeGrid.length && c >= 0 && c < mazeGrid[0].length) {
+                if (mazeGrid[r][c] === 1) {
+                    let wX = c * tileSize + tileSize / 2;
+                    let wY = r * tileSize + tileSize / 2;
+                    let dist = Math.sqrt((x - wX)**2 + (y - wY)**2);
+                    if (dist < checkRadius) return true;
+                }
             }
         }
     }
@@ -126,7 +131,6 @@ function checkBotWallCollision(x, y, radius) {
 
 io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
-        // Human player always spawns top left (60, 60)
         activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
         handleBotSpawningAndRemoval();
         io.emit('systemMessage', `📢 ${activePlayers[socket.id].name} joined the arena!`);
@@ -135,20 +139,17 @@ io.on('connection', (socket) => {
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
-            // Keep registration connection active but block coordinates modification if frozen
-            if (activePlayers[socket.id].isIt && tagCooldown > 0) {
-                io.emit('syncPlayers', activePlayers);
-                return;
+            // Process movement inputs continuously, but lock updates if the player is frozen
+            if (!(activePlayers[socket.id].isIt && tagCooldown > 0)) {
+                activePlayers[socket.id].x = data.x;
+                activePlayers[socket.id].y = data.y;
             }
-
-            activePlayers[socket.id].x = data.x;
-            activePlayers[socket.id].y = data.y;
             
             if (activePlayers[socket.id].isIt && tagCooldown === 0) {
                 for (let id in activePlayers) {
                     if (id !== socket.id) {
                         let target = activePlayers[id];
-                        let dist = Math.sqrt((data.x - target.x)**2 + (data.y - target.y)**2);
+                        let dist = Math.sqrt((activePlayers[socket.id].x - target.x)**2 + (activePlayers[socket.id].y - target.y)**2);
                         if (dist < (FIXED_RADIUS * 2)) {
                             activePlayers[socket.id].isIt = false;
                             target.isIt = true;
@@ -215,9 +216,8 @@ setInterval(() => {
                 let destGridX = 1;
                 let destGridY = 1;
 
-                // STRICT PATH TRACKING WHEN RUNNING AWAY
                 if (targetPlayer && !bot.isIt) {
-                    // Send the bot to the furthest track node layout quadrant
+                    // Send fleeing bot to opposite side of the screen
                     destGridX = targetPlayer.x > 300 ? 1 : 13;
                     destGridY = targetPlayer.y > 300 ? 1 : 13;
                 } else if (targetPlayer) {
