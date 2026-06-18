@@ -35,6 +35,13 @@ const mazeGrid = [
 ];
 const tileSize = 40;
 
+const DIRECTIONS = [
+    {x: 1, y: 0},  // Right
+    {x: -1, y: 0}, // Left
+    {x: 0, y: 1},  // Down
+    {x: 0, y: -1}  // Up
+];
+
 function handleBotSpawningAndRemoval() {
     let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
     
@@ -43,11 +50,12 @@ function handleBotSpawningAndRemoval() {
             id: BOT_ID,
             name: "🤖 Practice Bot",
             color: "#6c757d",
-            x: 300, // SAFE CORRIDOR SPAWN (Out of the wall!)
+            x: 140, 
             y: 60,
             radius: FIXED_RADIUS,
             isIt: true, 
-            angle: Math.random() * Math.PI * 2
+            dirX: 1,
+            dirY: 0
         };
         if(humanIds.length === 1) {
             activePlayers[humanIds[0]].isIt = false;
@@ -60,7 +68,7 @@ function handleBotSpawningAndRemoval() {
 }
 
 function checkBotWallCollision(x, y, radius) {
-    let buffer = radius + 3;
+    let buffer = radius + 2;
     let checkPoints = [
         {x: x - buffer, y: y}, {x: x + buffer, y: y},
         {x: x, y: y - buffer}, {x: x, y: y + buffer}
@@ -134,18 +142,66 @@ setInterval(() => {
 
     if (activePlayers[BOT_ID]) {
         let bot = activePlayers[BOT_ID];
-        if (Math.random() < 0.03) bot.angle = Math.random() * Math.PI * 2;
-
-        let speed = 2.0;
-        let nextX = bot.x + Math.cos(bot.angle) * speed;
-        let nextY = bot.y + Math.sin(bot.angle) * speed;
-
-        if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
-            bot.x = nextX;
-            bot.y = nextY;
-        } else {
-            bot.angle = Math.random() * Math.PI * 2;
+        
+        let targetPlayer = null;
+        let minDist = 999999;
+        for (let id in activePlayers) {
+            if (id !== BOT_ID) {
+                let dist = Math.sqrt((activePlayers[id].x - bot.x)**2 + (activePlayers[id].y - bot.y)**2);
+                if (dist < minDist) {
+                    minDist = dist;
+                    targetPlayer = activePlayers[id];
+                }
+            }
         }
+
+        // MATCH PLAYER SPEED: Exactly 4.2 all the time
+        let currentSpeed = 4.2; 
+        let isLunging = (bot.isIt && targetPlayer && minDist < 140);
+
+        if (isLunging && targetPlayer) {
+            let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
+            let dx = Math.cos(angleToTarget) * currentSpeed;
+            let dy = Math.sin(angleToTarget) * currentSpeed;
+
+            let nextX = bot.x + dx;
+            let nextY = bot.y + dy;
+
+            if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+                bot.x = nextX;
+                bot.y = nextY;
+            } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
+                bot.x = nextX;
+            } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
+                bot.y = nextY;
+            }
+        } else {
+            let nextPatrolX = bot.x + bot.dirX * currentSpeed;
+            let nextPatrolY = bot.y + bot.dirY * currentSpeed;
+
+            if (checkBotWallCollision(nextPatrolX, nextPatrolY, bot.radius) || Math.random() < 0.02) {
+                let validDirections = DIRECTIONS.filter(d => {
+                    let testX = bot.x + d.x * 15;
+                    let testY = bot.y + d.y * 15;
+                    return !checkBotWallCollision(testX, testY, bot.radius);
+                });
+
+                if (validDirections.length > 0) {
+                    let choice = validDirections[Math.floor(Math.random() * validDirections.length)];
+                    bot.dirX = choice.x;
+                    bot.dirY = choice.y;
+                } else {
+                    bot.dirX *= -1;
+                    bot.dirY *= -1;
+                }
+            }
+
+            bot.x += bot.dirX * currentSpeed;
+            bot.y += bot.dirY * currentSpeed;
+        }
+
+        if (bot.x > 600) bot.x = 0;
+        if (bot.x < 0) bot.x = 600;
 
         if (bot.isIt && tagCooldown === 0) {
             for (let id in activePlayers) {
