@@ -37,6 +37,23 @@ const mazeGrid = [
 const tileSize = 40;
 const MAP_SIZE = 15 * tileSize;
 
+// Pre-parse segments for the bot to run line collision queries against
+let wallSegments = [];
+for (let r = 0; r < mazeGrid.length; r++) {
+    for (let c = 0; c < mazeGrid[r].length; c++) {
+        if (mazeGrid[r][c] === 1) {
+            let startX = c * tileSize + tileSize / 2;
+            let startY = r * tileSize + tileSize / 2;
+            if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
+                wallSegments.push({ x1: startX, y1: startY, x2: (c + 1) * tileSize + tileSize / 2, y2: startY });
+            }
+            if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
+                wallSegments.push({ x1: startX, y1: startY, x2: startX, y2: (r + 1) * tileSize + tileSize / 2 });
+            }
+        }
+    }
+}
+
 const DIRECTIONS = [
     {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}
 ];
@@ -94,7 +111,6 @@ function ensureSomeoneIsIt() {
     
     let itCount = ids.filter(id => activePlayers[id].isIt).length;
     if (itCount === 0) {
-        // Default to making the bot IT, or the first human if the bot isn't spawned
         if (activePlayers[BOT_ID]) activePlayers[BOT_ID].isIt = true;
         else activePlayers[ids[0]].isIt = true;
     }
@@ -121,22 +137,22 @@ function handleBotSpawningAndRemoval() {
     ensureSomeoneIsIt();
 }
 
-function checkBotWallCollision(x, y, radius) {
-    let checkRadius = radius + (wallThickness / 2) - 1.0;
-    let cellX = Math.floor(x / tileSize);
-    let cellY = Math.floor(y / tileSize);
-
-    for (let r = cellY - 1; r <= cellY + 1; r++) {
-        for (let c = cellX - 1; c <= cellX + 1; c++) {
-            if (r >= 0 && r < mazeGrid.length && c >= 0 && c < mazeGrid[0].length) {
-                if (mazeGrid[r][c] === 1) {
-                    let wX = c * tileSize + tileSize / 2;
-                    let wY = r * tileSize + tileSize / 2;
-                    let dist = Math.sqrt((x - wX)**2 + (y - wY)**2);
-                    if (dist < checkRadius) return true;
-                }
-            }
+// BOUNDARY SEGMENT COLLISION FOR BOT
+function checkBotWallCollision(px, py, radius) {
+    if (py > tileSize * 6.6 && py < tileSize * 7.4) {
+        if (px < tileSize * 0.5 || px > MAP_SIZE - (tileSize * 0.5)) return false;
+    }
+    for (let seg of wallSegments) {
+        let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
+        let t = 0;
+        if (l2 !== 0) {
+            t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
+            t = Math.max(0, Math.min(1, t));
         }
+        let closestX = seg.x1 + t * (seg.x2 - seg.x1);
+        let closestY = seg.y1 + t * (seg.y2 - seg.y1);
+        let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+        if (dist < (radius + (wallThickness / 2))) return true;
     }
     return false;
 }
@@ -151,10 +167,9 @@ io.on('connection', (socket) => {
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
-            if (!(activePlayers[socket.id].isIt && tagCooldown > 0)) {
-                activePlayers[socket.id].x = data.x;
-                activePlayers[socket.id].y = data.y;
-            }
+            // Process movement updates continuously
+            activePlayers[socket.id].x = data.x;
+            activePlayers[socket.id].y = data.y;
             
             if (activePlayers[socket.id].isIt && tagCooldown === 0) {
                 for (let id in activePlayers) {
@@ -191,7 +206,10 @@ io.on('connection', (socket) => {
 setInterval(() => {
     if (tagCooldown > 0) {
         tagCooldown -= 16.67;
-        if (tagCooldown < 0) tagCooldown = 0;
+        if (tagCooldown < 0) {
+            tagCooldown = 0;
+            io.emit('syncCooldown', 0); // Explicitly update client when freeze expires
+        }
     }
 
     if (activePlayers[BOT_ID]) {
@@ -279,7 +297,6 @@ setInterval(() => {
         }
     }
     
-    // Safety check to verify an active IT status player exists before broadcasting frames
     ensureSomeoneIsIt();
     io.emit('syncPlayers', activePlayers);
 }, 16.67);
