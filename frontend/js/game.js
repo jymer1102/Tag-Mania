@@ -68,6 +68,11 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+// FORCE DISCONNECT HOOKS FOR QUICK CLOSING/RELOADING
+window.addEventListener('beforeunload', () => {
+    socket.disconnect();
+});
+
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 
@@ -155,7 +160,6 @@ socket.on('syncPlayers', (serverPlayers) => {
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
-            // Always adopt structural coordinates from server auth state
             players[myId].x = ratioX * canvas.width;
             players[myId].y = ratioY * canvas.height;
         } else {
@@ -222,7 +226,6 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // Enforce frozen input state locally, but maintain server loop
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
@@ -241,7 +244,6 @@ function gameLoop() {
             if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
         }
 
-        // Send positions even during freeze frames to maintain engine updates
         let uploadX = (me.x / canvas.width) * (15 * 40);
         let uploadY = (me.y / canvas.height) * (15 * 40);
         socket.emit('playerMove', { x: uploadX, y: uploadY });
