@@ -2,7 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONNECT TO MULTIPLAYER SERVER ---
-// ⚠️ Replace the URL inside the quotes with your exact live Render URL!
+// Replace the URL below with your exact live Render Web Service URL link!
 const socket = io("https://tag-mania.onrender.com");
 
 let myId = null;
@@ -63,7 +63,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Joystick Setup
+// Joystick Config
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 let joystickActive = false;
@@ -129,17 +129,16 @@ function checkWallCollision(radius, nextX, nextY) {
     return false;
 }
 
-// --- GATEWAY NETWORK CONNECTIONS ---
+// --- NETWORK HANDSHAKES ---
 socket.on('connect', () => {
     myId = socket.id;
     const statusBox = document.getElementById('status-box');
     if(statusBox) statusBox.innerText = "Connected! Click Join.";
 });
 
-socket.on('connect_error', (err) => {
+socket.on('connect_error', () => {
     const statusBox = document.getElementById('status-box');
     if(statusBox) statusBox.innerText = "Connection failed. Retrying...";
-    console.error("Socket error details:", err);
 });
 
 socket.on('syncPlayers', (serverPlayers) => {
@@ -150,8 +149,22 @@ socket.on('syncCooldown', (cooldownTime) => {
     tagCooldown = cooldownTime;
 });
 
+// Trigger Notification UI Alerts
+socket.on('systemMessage', (msg) => {
+    const notifyBox = document.getElementById('notification-box');
+    if (notifyBox) {
+        notifyBox.innerText = msg;
+        notifyBox.style.opacity = "1";
+        
+        // Hide overlay alert smoothly after 3.5 seconds
+        setTimeout(() => {
+            notifyBox.style.opacity = "0";
+        }, 3500);
+    }
+});
+
 document.getElementById('start-btn').addEventListener('click', () => {
-    if (!myId) return alert("Still connecting to server... give it a brief moment.");
+    if (!myId) return alert("Still connecting to server... give it a moment.");
     const nameInput = document.getElementById('username-input').value.trim();
     if (nameInput) myUsername = nameInput;
     myChosenColor = document.getElementById('color-picker').value;
@@ -187,10 +200,10 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Push positions to server instantly
+        // Push positions to background engine
         socket.emit('playerMove', { x: me.x, y: me.y });
 
-        // Let the 'IT' player manage tag validation checks 
+        // Let human 'IT' client run hit-box tracking checks
         if (me.isIt && tagCooldown === 0) {
             for (let id in players) {
                 if (id !== myId) {
@@ -204,20 +217,20 @@ function gameLoop() {
             }
         }
 
-        // Render Status Message Updates
+        // Top Status Header Strings
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
         
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             if (tagCooldown > 0) {
-                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
+                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s | ${currentItName} is IT!`;
             } else {
                 statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
             }
         }
 
-        // Render Map Boundaries
+        // Draw Map Geometry
         ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
@@ -230,7 +243,7 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Map Render Loops for Synchronized Avatars
+        // Frame Render Loops for Online Avatars
         for (let id in players) {
             let p = players[id];
             ctx.beginPath();
