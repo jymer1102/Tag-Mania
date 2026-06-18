@@ -155,11 +155,9 @@ socket.on('syncPlayers', (serverPlayers) => {
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
-            // Sync coordinate positions directly from the server engine during freeze updates
-            if (players[myId].isIt && tagCooldown > 0) {
-                players[myId].x = ratioX * canvas.width;
-                players[myId].y = ratioY * canvas.height;
-            }
+            // Always adopt structural coordinates from server auth state
+            players[myId].x = ratioX * canvas.width;
+            players[myId].y = ratioY * canvas.height;
         } else {
             if (!players[id]) players[id] = {};
             players[id].id = serverPlayers[id].id;
@@ -224,7 +222,7 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // FRONTEND MOVEMENT STOPPER: Enforce 0 speed while freeze timer ticks
+        // Enforce frozen input state locally, but maintain server loop
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
@@ -232,16 +230,18 @@ function gameLoop() {
         let nextMeX = me.x + (moveX * currentSpeed * speedMultiplier);
         let nextMeY = me.y + (moveY * currentSpeed * speedMultiplier);
         
-        if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
-        if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
+        if (!isMeFrozen) {
+            if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
+            if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
 
-        if (me.x > canvas.width) me.x = me.x - canvas.width;
-        else if (me.x < 0) me.x = me.x + canvas.width;
+            if (me.x > canvas.width) me.x = me.x - canvas.width;
+            else if (me.x < 0) me.x = me.x + canvas.width;
 
-        if (me.y - me.radius < 0) me.y = me.radius;
-        if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
+            if (me.y - me.radius < 0) me.y = me.radius;
+            if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
+        }
 
-        // ALWAYS keep sending heartbeats so the server never hangs up on your connection
+        // Send positions even during freeze frames to maintain engine updates
         let uploadX = (me.x / canvas.width) * (15 * 40);
         let uploadY = (me.y / canvas.height) * (15 * 40);
         socket.emit('playerMove', { x: uploadX, y: uploadY });
