@@ -42,6 +42,49 @@ const DIRECTIONS = [
     {x: 0, y: -1}  // Up
 ];
 
+// --- BFS PATHFINDING ALGORITHM ---
+// This lets the bot see the entire map matrix and calculate the perfect route to you
+function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
+    if (startGridX === targetGridX && startGridY === targetGridY) return [];
+
+    let queue = [ [startGridX, startGridY] ];
+    let visited = Array(mazeGrid.length).fill(null).map(() => Array(mazeGrid[0].length).fill(false));
+    let parentMap = {};
+
+    visited[startGridY][startGridX] = true;
+
+    while (queue.length > 0) {
+        let [cx, cy] = queue.shift();
+
+        if (cx === targetGridX && cy === targetGridY) {
+            // Reconstruct the tile path backwards
+            let path = [];
+            let key = `${cx},${cy}`;
+            while (key) {
+                let p = parentMap[key];
+                if (!p) break;
+                path.push(p.current);
+                key = p.parentKey;
+            }
+            return path.reverse(); 
+        }
+
+        for (let dir of DIRECTIONS) {
+            let nx = cx + dir.x;
+            let ny = cy + dir.y;
+
+            if (nx >= 0 && nx < mazeGrid[0].length && ny >= 0 && ny < mazeGrid.length) {
+                if (mazeGrid[ny][nx] === 0 && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    parentMap[`${nx},${ny}`] = { current: {x: nx, y: ny}, parentKey: `${cx},${cy}` };
+                    queue.push([nx, ny]);
+                }
+            }
+        }
+    }
+    return []; // No path found
+}
+
 function handleBotSpawningAndRemoval() {
     let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
     
@@ -155,27 +198,43 @@ setInterval(() => {
             }
         }
 
-        // MATCH PLAYER SPEED: Exactly 4.2 all the time
-        let currentSpeed = 4.2; 
-        let isLunging = (bot.isIt && targetPlayer && minDist < 140);
+        let currentSpeed = 4.2; // Locks speed perfectly to human speed
 
-        if (isLunging && targetPlayer) {
-            let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
-            let dx = Math.cos(angleToTarget) * currentSpeed;
-            let dy = Math.sin(angleToTarget) * currentSpeed;
+        if (bot.isIt && targetPlayer) {
+            // --- SMART PATH NAVIGATION MODE ---
+            let botGridX = Math.floor(bot.x / tileSize);
+            let botGridY = Math.floor(bot.y / tileSize);
+            let targetGridX = Math.floor(targetPlayer.x / tileSize);
+            let targetGridY = Math.floor(targetPlayer.y / tileSize);
 
-            let nextX = bot.x + dx;
-            let nextY = bot.y + dy;
+            let path = findShortestPath(botGridX, botGridY, targetGridX, targetGridY);
 
-            if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
-                bot.x = nextX;
-                bot.y = nextY;
-            } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
-                bot.x = nextX;
-            } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
-                bot.y = nextY;
+            if (path.length > 0) {
+                // Head toward the very next tile in the computed path layout
+                let nextTile = path[0];
+                let targetPixelX = nextTile.x * tileSize + tileSize / 2;
+                let targetPixelY = nextTile.y * tileSize + tileSize / 2;
+
+                let angle = Math.atan2(targetPixelY - bot.y, targetPixelX - bot.x);
+                let nextX = bot.x + Math.cos(angle) * currentSpeed;
+                let nextY = bot.y + Math.sin(angle) * currentSpeed;
+
+                if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+                    bot.x = nextX;
+                    bot.y = nextY;
+                }
+            } else {
+                // Fallback direct tracking if already sharing the exact same tile block
+                let angle = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
+                let nextX = bot.x + Math.cos(angle) * currentSpeed;
+                let nextY = bot.y + Math.sin(angle) * currentSpeed;
+                if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+                    bot.x = nextX;
+                    bot.y = nextY;
+                }
             }
         } else {
+            // PATROL CORRIDOR MODE: Standard map navigation awareness when running away
             let nextPatrolX = bot.x + bot.dirX * currentSpeed;
             let nextPatrolY = bot.y + bot.dirY * currentSpeed;
 
