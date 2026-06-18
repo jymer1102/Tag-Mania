@@ -36,7 +36,6 @@ const FIXED_RADIUS = 14;
 
 function resizeCanvas() {
     let size = Math.min(window.innerWidth, window.innerHeight * 0.60);
-    
     canvas.width = size;
     canvas.height = size;
     
@@ -115,7 +114,7 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// CAPSULE COLLISION MECHANIC: Calculates distances perfectly from rounded segment ends
+// MATHEMATICALLY EXACT CAPSULE COLLISION MECHANIC
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
@@ -124,8 +123,9 @@ function checkLineCollision(px, py, radius, seg) {
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    // Dynamic rounding tolerance for silky smooth wall gliding
-    return dist < (radius + (wallThickness / 2) - 0.5); 
+    
+    // Perfectly exact calculation match to the visual 16px capsule line thickness radius
+    return dist < (radius + (wallThickness / 2)); 
 }
 
 function checkWallCollision(radius, nextX, nextY) {
@@ -219,9 +219,13 @@ function gameLoop() {
 
         let me = players[myId];
 
+        // 3-SECOND IMMOBILIZATION SUSPENSION: If 'me' is IT and cooldown is ticking, speed = 0
+        let isFrozen = (me.isIt && tagCooldown > 0);
+        let currentSpeed = isFrozen ? 0 : 4.2;
+
         let speedMultiplier = canvas.width / (15 * 40);
-        let nextMeX = me.x + (moveX * 4.2 * speedMultiplier);
-        let nextMeY = me.y + (moveY * 4.2 * speedMultiplier);
+        let nextMeX = me.x + (moveX * currentSpeed * speedMultiplier);
+        let nextMeY = me.y + (moveY * currentSpeed * speedMultiplier);
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
@@ -242,7 +246,7 @@ function gameLoop() {
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             if (tagCooldown > 0) {
-                statusBox.innerHTML = `⚠️ COOLDOWN: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
+                statusBox.innerHTML = `⏳ FREEZE: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
             } else {
                 statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
             }
@@ -276,7 +280,7 @@ function gameLoop() {
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.font = 'bold 11px sans-serif';
-                ctx.fillText('👑 IT', p.x, p.y - p.radius - 16);
+                ctx.fillText(isFrozen ? '⏳ FROZEN' : '👑 IT', p.x, p.y - p.radius - 16);
             }
 
             ctx.fillStyle = '#fff';
