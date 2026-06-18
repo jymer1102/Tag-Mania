@@ -114,21 +114,24 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// MATHEMATICALLY EXACT CAPSULE COLLISION MECHANIC
+// PIXEL-PERFECT CAPSULE INTERSECTION MATH
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
-    if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < radius + (wallThickness / 2);
+    if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < (radius + (wallThickness / 2));
+    
     let t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
     t = Math.max(0, Math.min(1, t)); 
+    
     let closestX = seg.x1 + t * (seg.x2 - seg.x1);
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
     
-    // Perfectly exact calculation match to the visual 16px capsule line thickness radius
+    // Perfectly matches the physical outer boundaries of the canvas walls
     return dist < (radius + (wallThickness / 2)); 
 }
 
 function checkWallCollision(radius, nextX, nextY) {
+    // Portal lane threshold filter bypass
     if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
         if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
             return false;
@@ -219,9 +222,9 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // 3-SECOND IMMOBILIZATION SUSPENSION: If 'me' is IT and cooldown is ticking, speed = 0
-        let isFrozen = (me.isIt && tagCooldown > 0);
-        let currentSpeed = isFrozen ? 0 : 4.2;
+        // FIXED CHASSIS FREEZE: Stop player calculations when tagged
+        let isMeFrozen = (me.isIt && tagCooldown > 0);
+        let currentSpeed = isMeFrozen ? 0 : 4.2;
 
         let speedMultiplier = canvas.width / (15 * 40);
         let nextMeX = me.x + (moveX * currentSpeed * speedMultiplier);
@@ -236,9 +239,12 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        let uploadX = (me.x / canvas.width) * (15 * 40);
-        let uploadY = (me.y / canvas.height) * (15 * 40);
-        socket.emit('playerMove', { x: uploadX, y: uploadY });
+        // Only emit movement vectors if the client is not frozen in place
+        if (!isMeFrozen) {
+            let uploadX = (me.x / canvas.width) * (15 * 40);
+            let uploadY = (me.y / canvas.height) * (15 * 40);
+            socket.emit('playerMove', { x: uploadX, y: uploadY });
+        }
 
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
@@ -268,6 +274,8 @@ function gameLoop() {
         // Render Avatars
         for (let id in players) {
             let p = players[id];
+            let isThisPlayerFrozen = (p.isIt && tagCooldown > 0);
+
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
@@ -280,7 +288,7 @@ function gameLoop() {
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(isFrozen ? '⏳ FROZEN' : '👑 IT', p.x, p.y - p.radius - 16);
+                ctx.fillText(isThisPlayerFrozen ? '⏳ FROZEN' : '👑 IT', p.x, p.y - p.radius - 16);
             }
 
             ctx.fillStyle = '#fff';
