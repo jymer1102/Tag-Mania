@@ -95,11 +95,12 @@ function handleBotSpawningAndRemoval() {
             id: BOT_ID,
             name: "🤖 Practice Bot",
             color: "#6c757d",
-            x: 140, 
-            y: 60,
+            // OPPOSITE CORNER SPAWN: Spawn at bottom right (540, 540)
+            x: 540, 
+            y: 540,
             radius: FIXED_RADIUS,
             isIt: true,
-            dirX: 1,
+            dirX: -1,
             dirY: 0
         };
         if(humanIds.length === 1) activePlayers[humanIds[0]].isIt = false;
@@ -108,7 +109,6 @@ function handleBotSpawningAndRemoval() {
     }
 }
 
-// SERVER EXTRACTED PERFECT CAPSULE CORNER EVALUATOR
 function checkBotWallCollision(x, y, radius) {
     let buffer = radius + (wallThickness / 2) - 0.5;
     for (let r = 0; r < mazeGrid.length; r++) {
@@ -126,17 +126,20 @@ function checkBotWallCollision(x, y, radius) {
 
 io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
+        // Human player always spawns top left (60, 60)
         activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
         handleBotSpawningAndRemoval();
-        // FEED BACK ACTIVITY MESSAGE
         io.emit('systemMessage', `📢 ${activePlayers[socket.id].name} joined the arena!`);
         io.emit('syncPlayers', activePlayers);
     });
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
-            // Block position uploads during 3-second freeze suspensions
-            if (activePlayers[socket.id].isIt && tagCooldown > 0) return;
+            // Keep registration connection active but block coordinates modification if frozen
+            if (activePlayers[socket.id].isIt && tagCooldown > 0) {
+                io.emit('syncPlayers', activePlayers);
+                return;
+            }
 
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
@@ -149,7 +152,7 @@ io.on('connection', (socket) => {
                         if (dist < (FIXED_RADIUS * 2)) {
                             activePlayers[socket.id].isIt = false;
                             target.isIt = true;
-                            tagCooldown = 3000; // 3-second freeze trigger
+                            tagCooldown = 3000; 
                             io.emit('systemMessage', `💥 ${activePlayers[socket.id].name} tagged ${target.name}! 3s FREEZE!`);
                             io.emit('syncCooldown', tagCooldown);
                             break;
@@ -189,13 +192,11 @@ setInterval(() => {
             }
         }
 
-        // 3-SECOND IMMOBILIZATION SUSPENSION: Speed is 0 if bot is IT and cooldown is active
         let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 4.2; 
         let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160);
 
         if (currentSpeed > 0) {
             if (isLunging && targetPlayer) {
-                // CHASE LUNGE MODE
                 let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
                 let nextX = bot.x + Math.cos(angleToTarget) * currentSpeed;
                 let nextY = bot.y + Math.sin(angleToTarget) * currentSpeed;
@@ -208,15 +209,15 @@ setInterval(() => {
                     bot.y = nextY;
                 }
             } else {
-                // FLEE OR PATROL NAVIGATION MODE
                 let botGridX = Math.floor(bot.x / tileSize);
                 let botGridY = Math.floor(bot.y / tileSize);
                 
                 let destGridX = 1;
                 let destGridY = 1;
 
-                // BOT RUNS AWAY INSTEAD OF CHASING IF YOU ARE IT
+                // STRICT PATH TRACKING WHEN RUNNING AWAY
                 if (targetPlayer && !bot.isIt) {
+                    // Send the bot to the furthest track node layout quadrant
                     destGridX = targetPlayer.x > 300 ? 1 : 13;
                     destGridY = targetPlayer.y > 300 ? 1 : 13;
                 } else if (targetPlayer) {
@@ -249,7 +250,6 @@ setInterval(() => {
         if (bot.x > MAP_SIZE) bot.x -= MAP_SIZE;
         if (bot.x < 0) bot.x += MAP_SIZE;
 
-        // Verify Bot Tag Mechanics
         if (bot.isIt && tagCooldown === 0) {
             for (let id in activePlayers) {
                 if (id !== BOT_ID) {
@@ -257,7 +257,7 @@ setInterval(() => {
                     let dist = Math.sqrt((bot.x - p.x)**2 + (bot.y - p.y)**2);
                     if (dist < (FIXED_RADIUS * 2)) {
                         bot.isIt = false; p.isIt = true; 
-                        tagCooldown = 3000; // 3-second freeze trigger
+                        tagCooldown = 3000; 
                         io.emit('systemMessage', `💥 Bot tagged ${p.name}! 3s FREEZE!`);
                         io.emit('syncCooldown', tagCooldown);
                         break;
