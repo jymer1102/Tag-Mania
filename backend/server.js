@@ -21,13 +21,13 @@ const mazeGrid = [
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
     [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
-    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
-    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
     [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -35,19 +35,11 @@ const mazeGrid = [
 ];
 const tileSize = 40;
 
-function hasRealPlayers() {
-    return Object.keys(activePlayers).filter(id => id !== BOT_ID).length > 0;
-}
-
 function handleBotSpawningAndRemoval() {
-    const realPlayerPresent = hasRealPlayers();
-
-    if (realPlayerPresent && activePlayers[BOT_ID]) {
-        delete activePlayers[BOT_ID];
-        io.emit('systemMessage', "🤖 Training Bot left the arena.");
-        io.emit('syncPlayers', activePlayers);
-    } 
-    else if (!realPlayerPresent && !activePlayers[BOT_ID]) {
+    let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
+    
+    // If only 1 human is left active, pull out the training bot!
+    if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
             name: "🤖 Practice Bot",
@@ -58,18 +50,23 @@ function handleBotSpawningAndRemoval() {
             isIt: true,
             angle: Math.random() * Math.PI * 2
         };
-        io.emit('syncPlayers', activePlayers);
+        // Ensure someone is designated IT
+        if(humanIds.length === 1) {
+            activePlayers[humanIds[0]].isIt = false;
+        }
+    } 
+    // If multiple real players show up, remove the practice bot
+    else if (humanIds.length > 1 && activePlayers[BOT_ID]) {
+        delete activePlayers[BOT_ID];
+        io.emit('systemMessage', "🤖 Training Bot left. Real match active!");
     }
 }
 
-// Helper to check pixel-level maze wall collisions for the Bot
 function checkBotWallCollision(x, y, radius) {
-    let buffer = radius + 4;
+    let buffer = radius + 3;
     let checkPoints = [
-        {x: x - buffer, y: y},
-        {x: x + buffer, y: y},
-        {x: x, y: y - buffer},
-        {x: x, y: y + buffer}
+        {x: x - buffer, y: y}, {x: x + buffer, y: y},
+        {x: x, y: y - buffer}, {x: x, y: y + buffer}
     ];
     for (let pt of checkPoints) {
         let gX = Math.floor(pt.x / tileSize);
@@ -82,16 +79,7 @@ function checkBotWallCollision(x, y, radius) {
 }
 
 io.on('connection', (socket) => {
-    handleBotSpawningAndRemoval();
-
     socket.on('playerJoin', (data) => {
-        if (activePlayers[BOT_ID]) {
-            delete activePlayers[BOT_ID];
-            io.emit('systemMessage', "🤖 Training Bot left the arena.");
-        }
-
-        let totalPlayers = Object.keys(activePlayers).length;
-
         activePlayers[socket.id] = {
             id: socket.id,
             name: data.name || "Player",
@@ -99,42 +87,42 @@ io.on('connection', (socket) => {
             x: 220,
             y: 220,
             radius: FIXED_RADIUS,
-            isIt: (totalPlayers === 0)
+            isIt: false
         };
 
-        io.emit('systemMessage', `👋 ${activePlayers[socket.id].name} joined the game!`);
+        handleBotSpawningAndRemoval();
+        io.emit('systemMessage', `👋 ${activePlayers[socket.id].name} entered.`);
         io.emit('syncPlayers', activePlayers);
-        socket.emit('syncCooldown', tagCooldown);
     });
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
+            
+            // Real-time Tag Collision Evaluation
+            if (activePlayers[socket.id].isIt && tagCooldown === 0) {
+                for (let id in activePlayers) {
+                    if (id !== socket.id) {
+                        let target = activePlayers[id];
+                        let dist = Math.sqrt((data.x - target.x)**2 + (data.y - target.y)**2);
+                        if (dist < (FIXED_RADIUS * 2)) {
+                            activePlayers[socket.id].isIt = false;
+                            target.isIt = true;
+                            tagCooldown = 3000;
+                            io.emit('systemMessage', `💥 ${activePlayers[socket.id].name} tagged ${target.name}!`);
+                            io.emit('syncCooldown', tagCooldown);
+                            break;
+                        }
+                    }
+                }
+            }
             io.emit('syncPlayers', activePlayers);
-        }
-    });
-
-    socket.on('tagCollision', (data) => {
-        if (tagCooldown > 0) return;
-
-        let tagger = activePlayers[socket.id];
-        let tagged = activePlayers[data.taggedId];
-
-        if (tagger && tagged && tagger.isIt) {
-            tagger.isIt = false;
-            tagged.isIt = true;
-            tagCooldown = 3000;
-
-            io.emit('systemMessage', `💥 ${tagger.name} tagged ${tagged.name}!`);
-            io.emit('syncPlayers', activePlayers);
-            io.emit('syncCooldown', tagCooldown);
         }
     });
 
     socket.on('disconnect', () => {
         if (activePlayers[socket.id]) {
-            io.emit('systemMessage', `🚪 ${activePlayers[socket.id].name} left the room.`);
             delete activePlayers[socket.id];
         }
         handleBotSpawningAndRemoval();
@@ -146,18 +134,13 @@ setInterval(() => {
     if (tagCooldown > 0) {
         tagCooldown -= 16.67;
         if (tagCooldown < 0) tagCooldown = 0;
-        io.emit('syncCooldown', tagCooldown);
     }
 
-    // High-accuracy Bot movement tracking loop
     if (activePlayers[BOT_ID]) {
         let bot = activePlayers[BOT_ID];
-        
-        if (Math.random() < 0.02) {
-            bot.angle = Math.random() * Math.PI * 2;
-        }
+        if (Math.random() < 0.03) bot.angle = Math.random() * Math.PI * 2;
 
-        let speed = 2.2;
+        let speed = 2.0;
         let nextX = bot.x + Math.cos(bot.angle) * speed;
         let nextY = bot.y + Math.sin(bot.angle) * speed;
 
@@ -165,11 +148,29 @@ setInterval(() => {
             bot.x = nextX;
             bot.y = nextY;
         } else {
-            bot.angle = Math.random() * Math.PI * 2; // Bounce away instantly
+            bot.angle = Math.random() * Math.PI * 2;
+        }
+
+        // Bot Tagging Logic
+        if (bot.isIt && tagCooldown === 0) {
+            for (let id in activePlayers) {
+                if (id !== BOT_ID) {
+                    let p = activePlayers[id];
+                    let dist = Math.sqrt((bot.x - p.x)**2 + (bot.y - p.y)**2);
+                    if (dist < (FIXED_RADIUS * 2)) {
+                        bot.isIt = false;
+                        p.isIt = true;
+                        tagCooldown = 3000;
+                        io.emit('systemMessage', `💥 Bot crowned ${p.name} IT!`);
+                        io.emit('syncCooldown', tagCooldown);
+                        break;
+                    }
+                }
+            }
         }
         io.emit('syncPlayers', activePlayers);
     }
 }, 16.67);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running smoothly on port ${PORT}`));
+server.listen(PORT, () => console.log(`Engine loaded on port ${PORT}`));
