@@ -234,31 +234,47 @@
     </div>
 
     <script src="js/game.js"></script>
+    
     <script>
-        // Synchronize server connection status cleanly without evaluation overlap
+        // Smart connection monitoring framework
         const checkConnectionInterval = setInterval(() => {
-            const statusEl = document.getElementById('status-box');
             const menuStatus = document.getElementById('menu-status-label');
+            const statusEl = document.getElementById('status-box');
             
-            if (menuStatus && statusEl) {
-                const text = statusEl.innerText.trim();
-                
-                // If it contains "Connected" or "Join", OR if it changed from the initial exact "Connecting..." text
-                if (text.includes("Connected") || text.includes("Join") || text.includes("Ready") || (text !== "Connecting..." && text !== "Connecting")) {
-                    menuStatus.innerText = "🟢 SERVER READY";
-                    menuStatus.style.color = "#00ffcc";
-                    menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
-                    menuStatus.style.borderColor = "rgba(0, 255, 204, 0.2)";
-                } else {
-                    menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
-                    menuStatus.style.color = "#ffc107";
-                    menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
-                    menuStatus.style.borderColor = "rgba(255, 193, 7, 0.2)";
+            if (!menuStatus) return;
+
+            let isConnected = false;
+
+            // Method 1: Check native game socket state if exposed globally
+            if (typeof socket !== 'undefined' && socket) {
+                if (socket.connected || (socket.io && socket.io.readyState === 'open')) {
+                    isConnected = true;
                 }
             }
-        }, 200);
 
-        // Terminate tracking loop when moving past the home interface
+            // Method 2: Check canvas text node changes as an automatic backup strategy
+            if (!isConnected && statusEl) {
+                const text = statusEl.innerText.trim();
+                if (text.includes("Connected") || text.includes("Join") || text.includes("Ready") || (text !== "Connecting..." && text !== "Connecting" && text !== "")) {
+                    isConnected = true;
+                }
+            }
+
+            // Update status UI layer accordingly
+            if (isConnected) {
+                menuStatus.innerText = "🟢 SERVER READY";
+                menuStatus.style.color = "#00ffcc";
+                menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
+                menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
+            } else {
+                menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
+                menuStatus.style.color = "#ffc107";
+                menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
+                menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
+            }
+        }, 300);
+
+        // Turn off loop tracking instantly upon entry submission
         document.getElementById('start-btn').addEventListener('click', () => {
             clearInterval(checkConnectionInterval);
         });
