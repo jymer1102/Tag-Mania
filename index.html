@@ -3,35 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tag Mania Multiplayer</title>
-    <link rel="stylesheet" href="frontend/css/style.css">
+    <title>Tag Mania</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" sizes="192x192" href="favicon.png">
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        html, body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111;
+            color: #fff;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+        }
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .menu-box {
+            background: #222;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 360px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        input[type="text"], input[type="color"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #444;
+            border-radius: 6px;
+            background: #333;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="color"] {
+            height: 50px;
+            padding: 5px;
+            cursor: pointer;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #0056b3; }
+        
+        #game-container {
+            display: none;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        canvas {
+            background-color: #222; 
+            border: 4px solid #444;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            display: block;
+        }
+
+        #status-box {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            text-align: center;
+            pointer-events: none;
+            border: 1px solid #444;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        #notification-box {
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 123, 255, 0.9);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        #joystick-zone {
+            width: 110px;
+            height: 110px;
+            background: rgba(255,255,255,0.08);
+            border: 3px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            touch-action: none;
+            z-index: 5;
+        }
+        #joystick-stick {
+            width: 50px;
+            height: 50px;
+            background: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            top: 27px;
+            left: 27px;
+            transition: transform 0.05s ease-out;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.5);
+        }
+    </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <div class="logo-container">
-            <h1 class="game-title">TAG MANIA</h1>
-            <p class="game-subtitle">Fast-Paced Multiplayer Arena</p>
+        <div class="menu-box">
+            <h1>Tag Mania</h1>
+            <input type="text" id="username-input" placeholder="Enter Username" maxlength="12" autocomplete="off">
+            <label style="display:block; margin-bottom:8px; font-weight:bold; color:#aaa; text-align:left;">Choose Color:</label>
+            <input type="color" id="color-picker" value="#007bff">
+            <button id="start-btn">JOIN ARENA</button>
         </div>
-        
-        <div class="form-group">
-            <label for="username-input">Player Handle</label>
-            <input type="text" id="username-input" placeholder="Enter username..." maxlength="12">
-        </div>
-        
-        <div class="form-group">
-            <label for="color-picker">Avatar Cosmetics</label>
-            <div class="color-picker-wrapper">
-                <input type="color" id="color-picker" value="#007bff">
-                <span class="color-label">Click to choose color</span>
-            </div>
-        </div>
-        
-        <button id="start-btn">ENTER ARENA</button>
-        <div id="status-box">Connecting to server...</div>
     </div>
 
-    <div id="game-container" style="display: none;">
+    <div id="game-container">
+        <div id="status-box">Connecting to host engine...</div>
         <div id="notification-box"></div>
         <canvas id="gameCanvas"></canvas>
         
@@ -40,7 +169,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="frontend/js/game.js"></script>
+    <script src="js/game.js"></script>
 </body>
 </html>
