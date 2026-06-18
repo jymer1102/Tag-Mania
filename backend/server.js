@@ -88,6 +88,18 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     return [];
 }
 
+function ensureSomeoneIsIt() {
+    let ids = Object.keys(activePlayers);
+    if (ids.length === 0) return;
+    
+    let itCount = ids.filter(id => activePlayers[id].isIt).length;
+    if (itCount === 0) {
+        // Default to making the bot IT, or the first human if the bot isn't spawned
+        if (activePlayers[BOT_ID]) activePlayers[BOT_ID].isIt = true;
+        else activePlayers[ids[0]].isIt = true;
+    }
+}
+
 function handleBotSpawningAndRemoval() {
     let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
@@ -106,9 +118,9 @@ function handleBotSpawningAndRemoval() {
     } else if (humanIds.length > 1 && activePlayers[BOT_ID]) {
         delete activePlayers[BOT_ID];
     }
+    ensureSomeoneIsIt();
 }
 
-// EXACT BOUNDARY CALCULATOR TO PREVENT BOT CLIPPING
 function checkBotWallCollision(x, y, radius) {
     let checkRadius = radius + (wallThickness / 2) - 1.0;
     let cellX = Math.floor(x / tileSize);
@@ -139,7 +151,6 @@ io.on('connection', (socket) => {
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
-            // Process movement inputs continuously, but lock updates if the player is frozen
             if (!(activePlayers[socket.id].isIt && tagCooldown > 0)) {
                 activePlayers[socket.id].x = data.x;
                 activePlayers[socket.id].y = data.y;
@@ -168,7 +179,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (activePlayers[socket.id]) {
             io.emit('systemMessage', `❌ ${activePlayers[socket.id].name} left.`);
+            let wasIt = activePlayers[socket.id].isIt;
             delete activePlayers[socket.id];
+            if (wasIt) ensureSomeoneIsIt();
         }
         handleBotSpawningAndRemoval();
         io.emit('syncPlayers', activePlayers);
@@ -217,7 +230,6 @@ setInterval(() => {
                 let destGridY = 1;
 
                 if (targetPlayer && !bot.isIt) {
-                    // Send fleeing bot to opposite side of the screen
                     destGridX = targetPlayer.x > 300 ? 1 : 13;
                     destGridY = targetPlayer.y > 300 ? 1 : 13;
                 } else if (targetPlayer) {
@@ -265,8 +277,11 @@ setInterval(() => {
                 }
             }
         }
-        io.emit('syncPlayers', activePlayers);
     }
+    
+    // Safety check to verify an active IT status player exists before broadcasting frames
+    ensureSomeoneIsIt();
+    io.emit('syncPlayers', activePlayers);
 }, 16.67);
 
 const PORT = process.env.PORT || 3000;
