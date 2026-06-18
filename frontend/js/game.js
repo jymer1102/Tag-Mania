@@ -68,7 +68,6 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// FORCE DISCONNECT HOOKS FOR QUICK CLOSING/RELOADING
 window.addEventListener('beforeunload', () => {
     socket.disconnect();
 });
@@ -160,8 +159,11 @@ socket.on('syncPlayers', (serverPlayers) => {
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
-            players[myId].x = ratioX * canvas.width;
-            players[myId].y = ratioY * canvas.height;
+            // CLIENT AUTH: Only let the server jump your position if you are frozen
+            if (players[myId].isIt && tagCooldown > 0) {
+                players[myId].x = ratioX * canvas.width;
+                players[myId].y = ratioY * canvas.height;
+            }
         } else {
             if (!players[id]) players[id] = {};
             players[id].id = serverPlayers[id].id;
@@ -225,7 +227,6 @@ function gameLoop() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         let me = players[myId];
-
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
