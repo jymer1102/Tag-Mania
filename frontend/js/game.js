@@ -161,7 +161,6 @@ socket.on('syncPlayers', (serverPlayers) => {
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
-            // Force authority position adjustment ONLY if frozen
             if (players[myId].isIt && tagCooldown > 0) {
                 players[myId].x = targetX;
                 players[myId].y = targetY;
@@ -179,7 +178,6 @@ socket.on('syncPlayers', (serverPlayers) => {
                 };
             }
             players[id].isIt = serverPlayers[id].isIt;
-            // Store target values for remote players to smoothly transition (interpolation)
             players[id].targetX = targetX;
             players[id].targetY = targetY;
         }
@@ -237,11 +235,14 @@ function gameLoop() {
 
         let me = players[myId];
         let isMeFrozen = (me.isIt && tagCooldown > 0);
+        
+        let currentMoveX = isMeFrozen ? 0 : moveX;
+        let currentMoveY = isMeFrozen ? 0 : moveY;
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
         let speedMultiplier = canvas.width / (15 * 40);
-        let nextMeX = me.x + (moveX * currentSpeed * speedMultiplier);
-        let nextMeY = me.y + (moveY * currentSpeed * speedMultiplier);
+        let nextMeX = me.x + (currentMoveX * currentSpeed * speedMultiplier);
+        let nextMeY = me.y + (currentMoveY * currentSpeed * speedMultiplier);
         
         if (!isMeFrozen) {
             if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
@@ -283,20 +284,27 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Interpolated Remote Rendering Loop
+        // Render Loop
         for (let id in players) {
             let p = players[id];
             
             if (id !== myId && p.targetX !== undefined) {
-                // Smoothly slide remote players toward their server coordinates over frames
                 p.x += (p.targetX - p.x) * 0.25;
                 p.y += (p.targetY - p.y) * 0.25;
             }
 
             let isThisPlayerFrozen = (p.isIt && tagCooldown > 0);
 
+            // Refined Micro-Vibration Layer (0.4 pixel shake)
+            let renderX = p.x;
+            let renderY = p.y;
+            if (isThisPlayerFrozen) {
+                renderX += Math.sin(Date.now() * 0.08) * 0.4; 
+                renderY += Math.cos(Date.now() * 0.08) * 0.4;
+            }
+
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.arc(renderX, renderY, p.radius, 0, Math.PI * 2);
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
             ctx.fill();
             ctx.lineWidth = 2;
@@ -307,13 +315,13 @@ function gameLoop() {
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(isThisPlayerFrozen ? '⏳ FROZEN' : '👑 IT', p.x, p.y - p.radius - 16);
+                ctx.fillText(isThisPlayerFrozen ? '⏳ FROZEN' : '👑 IT', renderX, renderY - p.radius - 16);
             }
 
             ctx.fillStyle = '#fff';
             ctx.font = '11px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(p.name, p.x, p.y - p.radius - 4);
+            ctx.fillText(p.name, renderX, renderY - p.radius - 4);
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
