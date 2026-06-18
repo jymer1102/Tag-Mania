@@ -114,7 +114,6 @@ window.addEventListener('touchend', () => {
     moveY = 0;
 });
 
-// PIXEL-PERFECT CAPSULE INTERSECTION MATH
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
     if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < (radius + (wallThickness / 2));
@@ -126,12 +125,10 @@ function checkLineCollision(px, py, radius, seg) {
     let closestY = seg.y1 + t * (seg.y2 - seg.y1);
     let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
     
-    // Perfectly matches the physical outer boundaries of the canvas walls
     return dist < (radius + (wallThickness / 2)); 
 }
 
 function checkWallCollision(radius, nextX, nextY) {
-    // Portal lane threshold filter bypass
     if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
         if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
             return false;
@@ -158,6 +155,11 @@ socket.on('syncPlayers', (serverPlayers) => {
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
+            // Sync coordinate positions directly from the server engine during freeze updates
+            if (players[myId].isIt && tagCooldown > 0) {
+                players[myId].x = ratioX * canvas.width;
+                players[myId].y = ratioY * canvas.height;
+            }
         } else {
             if (!players[id]) players[id] = {};
             players[id].id = serverPlayers[id].id;
@@ -222,7 +224,7 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // FIXED CHASSIS FREEZE: Stop player calculations when tagged
+        // FRONTEND MOVEMENT STOPPER: Enforce 0 speed while freeze timer ticks
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
@@ -239,12 +241,10 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Only emit movement vectors if the client is not frozen in place
-        if (!isMeFrozen) {
-            let uploadX = (me.x / canvas.width) * (15 * 40);
-            let uploadY = (me.y / canvas.height) * (15 * 40);
-            socket.emit('playerMove', { x: uploadX, y: uploadY });
-        }
+        // ALWAYS keep sending heartbeats so the server never hangs up on your connection
+        let uploadX = (me.x / canvas.width) * (15 * 40);
+        let uploadY = (me.y / canvas.height) * (15 * 40);
+        socket.emit('playerMove', { x: uploadX, y: uploadY });
 
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
