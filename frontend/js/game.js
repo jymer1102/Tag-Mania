@@ -16,13 +16,13 @@ const mazeGrid = [
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
     [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
-    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
     [1,1,1,0,1,1,1,0,1,1,1,0,1,1,1],
     [1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],
-    [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+    [1,1,1,1,1,0,1,0,1,0,1,1,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
     [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -32,11 +32,12 @@ const mazeGrid = [
 let wallSegments = [];
 let tileSize = 40; 
 const wallThickness = 16; 
-const FIXED_RADIUS = 14; // Matches the bot size perfectly!
+const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Cap canvas height to leave room for the bottom joystick area
+    canvas.height = window.innerHeight * 0.65; 
     
     tileSize = Math.floor(canvas.width / mazeGrid[0].length);
     if (tileSize * mazeGrid.length > canvas.height) {
@@ -63,9 +64,16 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// Joystick Setup
+// Precise Center Joystick Setup
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
+
+// Center it perfectly in the remaining bottom screen real estate
+joystickZone.style.position = "absolute";
+joystickZone.style.bottom = "10%";
+joystickZone.style.left = "50%";
+joystickZone.style.transform = "translateX(-50%)";
+
 let joystickActive = false;
 let joystickStartX = 0;
 let joystickStartY = 0;
@@ -135,8 +143,20 @@ socket.on('connect', () => {
     if(statusBox) statusBox.innerText = "Connected! Click Join.";
 });
 
+// Sync server changes data smoothly without jumping backwards
 socket.on('syncPlayers', (serverPlayers) => {
-    players = serverPlayers;
+    for (let id in serverPlayers) {
+        if (id === myId && players[myId]) {
+            // Keep your local prediction but update state statuses like isIt
+            players[myId].isIt = serverPlayers[id].isIt;
+        } else {
+            players[id] = serverPlayers[id];
+        }
+    }
+    // Delete disconnected players
+    for (let id in players) {
+        if (!serverPlayers[id]) delete players[id];
+    }
 });
 
 socket.on('syncCooldown', (cooldownTime) => {
@@ -161,6 +181,17 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
+    // Create instant local representation to completely kill lag
+    players[myId] = {
+        id: myId,
+        name: myUsername,
+        color: myChosenColor,
+        radius: FIXED_RADIUS,
+        x: 220,
+        y: 220,
+        isIt: false
+    };
+
     socket.emit('playerJoin', {
         name: myUsername,
         color: myChosenColor,
@@ -176,9 +207,9 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // Process movement input locally
-        let nextMeX = me.x + moveX * 4;
-        let nextMeY = me.y + moveY * 4;
+        // LOCAL PREDICTION MOVEMENT (Instant feedback, 0 lag)
+        let nextMeX = me.x + moveX * 4.5;
+        let nextMeY = me.y + moveY * 4.5;
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
@@ -190,10 +221,9 @@ function gameLoop() {
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Push calculated position smoothly to server
+        // Send smooth predictions over to the central host
         socket.emit('playerMove', { x: me.x, y: me.y });
 
-        // Update Header Dynamic Alert Message texts
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
         
@@ -206,7 +236,7 @@ function gameLoop() {
             }
         }
 
-        // Draw Walls
+        // Render Walls
         ctx.strokeStyle = '#ffffff'; 
         ctx.lineWidth = wallThickness;          
         ctx.lineCap = 'round';       
