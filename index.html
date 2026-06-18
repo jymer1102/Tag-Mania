@@ -20,7 +20,7 @@
         }
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #111;
+            background-color: #0d0d11;
             color: #fff;
             display: flex;
             flex-direction: column;
@@ -30,135 +30,157 @@
             overflow: hidden;
         }
         
-        /* Redesigned Menu Container */
+        /* Ultra-Cool Cyberpunk Menu Container */
         #login-screen {
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: #1e1e1e;
-            padding: 35px 25px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-            border: 1px solid #333;
+            background: rgba(30, 30, 38, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 123, 255, 0.2), inset 0 0 15px rgba(255,255,255,0.05);
+            border: 2px solid #007bff;
             width: 90%;
-            max-width: 340px;
+            max-width: 350px;
             text-align: center;
         }
         
-        /* Neon/Retro Header Style */
+        /* Animated Neon Header */
         #login-screen h1 {
-            font-size: 2.2rem;
-            margin-bottom: 25px;
-            letter-spacing: 1px;
-            background: linear-gradient(45deg, #007bff, #00c6ff);
+            font-size: 2.6rem;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #007bff, #00ffcc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
+        }
+
+        /* Home Screen Server Status Label */
+        .server-status-wrapper {
+            font-size: 13px;
+            color: #00ffcc;
+            background: rgba(0, 255, 204, 0.1);
+            padding: 4px 12px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            display: inline-block;
         }
         
-        /* Polished Input Styling */
-        #login-screen input[type="text"] {
-            margin: 8px 0 18px 0;
-            padding: 14px;
-            font-size: 16px;
-            width: 100%;
-            border-radius: 8px;
-            border: 2px solid #333;
-            background: #2a2a2a;
-            color: #fff;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        #login-screen input[type="text"]:focus {
-            border-color: #007bff;
-        }
-        
-        /* Modernized Custom Color Picker Input */
+        /* Input Fields styling */
         #login-screen label {
-            font-size: 14px;
-            color: #aaa;
-            font-weight: 600;
+            font-size: 12px;
+            color: #8c8c9e;
+            font-weight: 700;
             text-align: left;
             width: 100%;
             display: block;
             margin-bottom: 6px;
+            letter-spacing: 1px;
         }
+        #login-screen input[type="text"] {
+            margin-bottom: 20px;
+            padding: 14px;
+            font-size: 16px;
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #323242;
+            background: #181822;
+            color: #fff;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        #login-screen input[type="text"]:focus {
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
+        
+        /* Avatar Color Customizer Config */
         #login-screen input[type="color"] {
             -webkit-appearance: none;
             border: none;
             width: 100%;
-            height: 44px;
-            border-radius: 8px;
+            height: 48px;
+            border-radius: 10px;
             cursor: pointer;
             background: none;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
         #login-screen input[type="color"]::-webkit-color-swatch-wrapper {
             padding: 0;
         }
         #login-screen input[type="color"]::-webkit-color-swatch {
-            border: 2px solid #333;
-            border-radius: 8px;
+            border: 2px solid #323242;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        /* Clean High-Contrast Action Button */
+        /* Action Button */
         #login-screen button {
             width: 100%;
-            padding: 14px;
+            padding: 15px;
             font-size: 16px;
             font-weight: bold;
-            letter-spacing: 0.5px;
-            background: #007bff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
             color: #fff;
             cursor: pointer;
             border: none;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
             transition: all 0.2s ease;
         }
         #login-screen button:hover {
-            background: #0056b3;
+            background: linear-gradient(135deg, #0056b3, #004085);
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(0, 123, 255, 0.4);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
         }
         #login-screen button:active {
             transform: translateY(1px);
         }
 
-        /* Gameplay Structural Styling */
+        /* Gameplay Framework Elements */
         #game-container {
             display: none;
             position: relative;
             text-align: center;
         }
         canvas {
-            border: 4px solid #333;
-            border-radius: 8px;
+            border: 4px solid #1e1e24;
+            border-radius: 12px;
             display: block;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            box-shadow: 0 12px 36px rgba(0,0,0,0.7);
         }
         #status-box {
             position: absolute;
             top: 15px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            padding: 6px 14px;
+            background: rgba(13, 13, 17, 0.9);
+            padding: 8px 18px;
             border-radius: 20px;
             font-size: 15px;
             font-weight: bold;
-            border: 1px solid #444;
+            border: 1px solid #323242;
             z-index: 10;
             white-space: nowrap;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         #notification-box {
             position: absolute;
-            top: 60px;
+            top: 65px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 123, 255, 0.9);
-            padding: 6px 14px;
-            border-radius: 6px;
+            background: rgba(0, 123, 255, 0.95);
+            padding: 6px 16px;
+            border-radius: 8px;
             font-size: 14px;
             opacity: 0;
             transition: opacity 0.5s ease;
@@ -167,8 +189,8 @@
         #joystick-zone {
             width: 100px;
             height: 100px;
-            background: rgba(255,255,255,0.08);
-            border: 2px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            border: 2px solid rgba(255,255,255,0.12);
             border-radius: 50%;
             touch-action: none;
             z-index: 5;
@@ -181,7 +203,7 @@
             position: absolute;
             top: 29px;
             left: 29px;
-            box-shadow: 0 4px 10px rgba(0,123,255,0.4);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.5);
         }
     </style>
 </head>
@@ -190,17 +212,19 @@
     <div id="login-screen">
         <h1>Tag Mania</h1>
         
-        <label for="username-input">PLAYER NAME</label>
-        <input type="text" id="username-input" placeholder="Enter name..." maxlength="12" autocomplete="off">
+        <div class="server-status-wrapper" id="menu-status-label">Checking Server Link...</div>
         
-        <label for="color-picker">AVATAR COLOR</label>
+        <label for="username-input">CHOOSE PLAYER USERNAME</label>
+        <input type="text" id="username-input" placeholder="Enter player name..." maxlength="12" autocomplete="off">
+        
+        <label for="color-picker">CUSTOM IN-GAME AVATAR COLOR</label>
         <input type="color" id="color-picker" value="#007bff">
         
-        <button id="start-btn">JOIN ARENA</button>
+        <button id="start-btn">Join Arena</button>
     </div>
 
     <div id="game-container">
-        <div id="status-box">Connecting to server...</div>
+        <div id="status-box">Connecting...</div>
         <div id="notification-box"></div>
         <canvas id="gameCanvas"></canvas>
         <div id="joystick-zone">
@@ -209,5 +233,31 @@
     </div>
 
     <script src="js/game.js"></script>
+    <script>
+        // Synchronize server connection updates to show up directly on the dashboard
+        const checkConnectionInterval = setInterval(() => {
+            const statusBoxText = document.getElementById('status-box').innerText;
+            const menuStatus = document.getElementById('menu-status-label');
+            
+            if (menuStatus && statusBoxText) {
+                if (statusBoxText.includes("Connected") || statusBoxText.includes("Click Join")) {
+                    menuStatus.innerText = "🟢 SERVER READY";
+                    menuStatus.style.color = "#00ffcc";
+                    menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
+                    menuStatus.style.borderColor = "rgba(0, 255, 204, 0.2)";
+                } else if (statusBoxText.includes("Connecting")) {
+                    menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
+                    menuStatus.style.color = "#ffc107";
+                    menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
+                    menuStatus.style.borderColor = "rgba(255, 193, 7, 0.2)";
+                }
+            }
+        }, 200);
+
+        // Turn off dashboard sync check loop when player clicks the join button
+        document.getElementById('start-btn').addEventListener('click', () => {
+            clearInterval(checkConnectionInterval);
+        });
+    </script>
 </body>
 </html>
