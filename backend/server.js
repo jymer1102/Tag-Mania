@@ -37,7 +37,6 @@ const mazeGrid = [
 const tileSize = 40;
 const MAP_SIZE = 15 * tileSize;
 
-// Pre-parse segments for the bot to run line collision queries against
 let wallSegments = [];
 for (let r = 0; r < mazeGrid.length; r++) {
     for (let c = 0; c < mazeGrid[r].length; c++) {
@@ -105,6 +104,24 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     return [];
 }
 
+// RAYCAST INTERSECTION TEST FOR LUNGING LINE-OF-SIGHT
+function lineIntersects(x1, y1, x2, y2, x3, y3, x4, y4) {
+    let det = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+    if (det === 0) return false;
+    let lambda = ((y4 - y3) * (x4 - x1) + (x3 - x4) * (y4 - y1)) / det;
+    let gamma = ((y1 - y2) * (x4 - x1) + (x2 - x1) * (y4 - y1)) / det;
+    return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
+}
+
+function checkLineOfSight(x1, y1, x2, y2) {
+    for (let seg of wallSegments) {
+        if (lineIntersects(x1, y1, x2, y2, seg.x1, seg.y1, seg.x2, seg.y2)) {
+            return false; // Intersects a physical wall segment!
+        }
+    }
+    return true;
+}
+
 function ensureSomeoneIsIt() {
     let ids = Object.keys(activePlayers);
     if (ids.length === 0) return;
@@ -137,7 +154,6 @@ function handleBotSpawningAndRemoval() {
     ensureSomeoneIsIt();
 }
 
-// BOUNDARY SEGMENT COLLISION FOR BOT
 function checkBotWallCollision(px, py, radius) {
     if (py > tileSize * 6.6 && py < tileSize * 7.4) {
         if (px < tileSize * 0.5 || px > MAP_SIZE - (tileSize * 0.5)) return false;
@@ -167,7 +183,6 @@ io.on('connection', (socket) => {
 
     socket.on('playerMove', (data) => {
         if (activePlayers[socket.id]) {
-            // Process movement updates continuously
             activePlayers[socket.id].x = data.x;
             activePlayers[socket.id].y = data.y;
             
@@ -208,7 +223,7 @@ setInterval(() => {
         tagCooldown -= 16.67;
         if (tagCooldown < 0) {
             tagCooldown = 0;
-            io.emit('syncCooldown', 0); // Explicitly update client when freeze expires
+            io.emit('syncCooldown', 0);
         }
     }
 
@@ -225,7 +240,10 @@ setInterval(() => {
         }
 
         let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 4.2; 
-        let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160);
+        
+        // ADDED LINE-OF-SIGHT CHECK TO LUNGE CRITERIA
+        let hasLOS = targetPlayer ? checkLineOfSight(bot.x, bot.y, targetPlayer.x, targetPlayer.y) : false;
+        let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160 && hasLOS);
 
         if (currentSpeed > 0) {
             if (isLunging && targetPlayer) {
