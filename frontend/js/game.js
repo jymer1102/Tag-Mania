@@ -35,14 +35,18 @@ const wallThickness = 16;
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    // Cap canvas height to leave room for the bottom joystick area
-    canvas.height = window.innerHeight * 0.65; 
+    // 1. Find the maximum safe layout space (leaving the bottom 30% for joystick)
+    let maxWidth = window.innerWidth;
+    let maxHeight = window.innerHeight * 0.70;
+
+    // 2. FORCE IT TO BE A PERFECT SQUARE (Stops any vertical stretching!)
+    let size = Math.min(maxWidth, maxHeight);
     
-    tileSize = Math.floor(canvas.width / mazeGrid[0].length);
-    if (tileSize * mazeGrid.length > canvas.height) {
-        tileSize = Math.floor(canvas.height / mazeGrid.length);
-    }
+    canvas.width = size;
+    canvas.height = size;
+    
+    // 3. Keep standard grid calculations synced with backend map
+    tileSize = size / mazeGrid[0].length;
 
     wallSegments = [];
     for (let r = 0; r < mazeGrid.length; r++) {
@@ -68,9 +72,8 @@ resizeCanvas();
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 
-// Center it perfectly in the remaining bottom screen real estate
 joystickZone.style.position = "absolute";
-joystickZone.style.bottom = "10%";
+joystickZone.style.bottom = "8%";
 joystickZone.style.left = "50%";
 joystickZone.style.transform = "translateX(-50%)";
 
@@ -143,17 +146,25 @@ socket.on('connect', () => {
     if(statusBox) statusBox.innerText = "Connected! Click Join.";
 });
 
-// Sync server changes data smoothly without jumping backwards
 socket.on('syncPlayers', (serverPlayers) => {
     for (let id in serverPlayers) {
+        // Adapt server scaling factor back to dynamic mobile sizes smoothly
+        let ratioX = serverPlayers[id].x / (15 * 40);
+        let ratioY = serverPlayers[id].y / (15 * 40);
+
         if (id === myId && players[myId]) {
-            // Keep your local prediction but update state statuses like isIt
             players[myId].isIt = serverPlayers[id].isIt;
         } else {
-            players[id] = serverPlayers[id];
+            if (!players[id]) players[id] = {};
+            players[id].id = serverPlayers[id].id;
+            players[id].name = serverPlayers[id].name;
+            players[id].color = serverPlayers[id].color;
+            players[id].radius = FIXED_RADIUS;
+            players[id].isIt = serverPlayers[id].isIt;
+            players[id].x = ratioX * canvas.width;
+            players[id].y = ratioY * canvas.height;
         }
     }
-    // Delete disconnected players
     for (let id in players) {
         if (!serverPlayers[id]) delete players[id];
     }
@@ -181,14 +192,15 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    // Create instant local representation to completely kill lag
+    // Set initial position safely in a path
+    let spawnPixel = tileSize * 1.5;
     players[myId] = {
         id: myId,
         name: myUsername,
         color: myChosenColor,
         radius: FIXED_RADIUS,
-        x: 220,
-        y: 220,
+        x: spawnPixel,
+        y: spawnPixel,
         isIt: false
     };
 
@@ -207,22 +219,24 @@ function gameLoop() {
 
         let me = players[myId];
 
-        // LOCAL PREDICTION MOVEMENT (Instant feedback, 0 lag)
-        let nextMeX = me.x + moveX * 4.5;
-        let nextMeY = me.y + moveY * 4.5;
+        // Process smooth input
+        let speedMultiplier = canvas.width / (15 * 40);
+        let nextMeX = me.x + (moveX * 4.5 * speedMultiplier);
+        let nextMeY = me.y + (moveY * 4.5 * speedMultiplier);
         
         if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
         if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
 
-        let mazeWidth = mazeGrid[0].length * tileSize;
-        if (me.x > mazeWidth) me.x = me.x - mazeWidth;
-        else if (me.x < 0) me.x = me.x + mazeWidth;
+        if (me.x > canvas.width) me.x = me.x - canvas.width;
+        else if (me.x < 0) me.x = me.x + canvas.width;
 
         if (me.y - me.radius < 0) me.y = me.radius;
         if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
 
-        // Send smooth predictions over to the central host
-        socket.emit('playerMove', { x: me.x, y: me.y });
+        // Normalize data structures before firing over websockets to prevent cross-device issues
+        let uploadX = (me.x / canvas.width) * (15 * 40);
+        let uploadY = (me.y / canvas.height) * (15 * 40);
+        socket.emit('playerMove', { x: uploadX, y: uploadY });
 
         let currentItName = "Nobody";
         for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
@@ -236,9 +250,9 @@ function gameLoop() {
             }
         }
 
-        // Render Walls
+        // Draw Walls
         ctx.strokeStyle = '#ffffff'; 
-        ctx.lineWidth = wallThickness;          
+        ctx.lineWidth = wallThickness * (canvas.width / 600); // Scale thickness safely         
         ctx.lineCap = 'round';       
         ctx.lineJoin = 'round';      
 
@@ -249,7 +263,7 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Render Avatars
+        // Render Avatars perfectly circular
         for (let id in players) {
             let p = players[id];
             ctx.beginPath();
