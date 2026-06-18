@@ -104,7 +104,6 @@ function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
     return [];
 }
 
-// RAYCAST INTERSECTION TEST FOR LUNGING LINE-OF-SIGHT
 function lineIntersects(x1, y1, x2, y2, x3, y3, x4, y4) {
     let det = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
     if (det === 0) return false;
@@ -116,7 +115,7 @@ function lineIntersects(x1, y1, x2, y2, x3, y3, x4, y4) {
 function checkLineOfSight(x1, y1, x2, y2) {
     for (let seg of wallSegments) {
         if (lineIntersects(x1, y1, x2, y2, seg.x1, seg.y1, seg.x2, seg.y2)) {
-            return false; // Intersects a physical wall segment!
+            return false;
         }
     }
     return true;
@@ -241,7 +240,6 @@ setInterval(() => {
 
         let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 4.2; 
         
-        // ADDED LINE-OF-SIGHT CHECK TO LUNGE CRITERIA
         let hasLOS = targetPlayer ? checkLineOfSight(bot.x, bot.y, targetPlayer.x, targetPlayer.y) : false;
         let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160 && hasLOS);
 
