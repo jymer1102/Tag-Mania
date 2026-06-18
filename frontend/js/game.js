@@ -35,13 +35,20 @@ const wallThickness = 16;
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
-    let size = Math.min(window.innerWidth, window.innerHeight * 0.65);
+    // Determine maximum safe layout bounding dimension
+    let size = Math.min(window.innerWidth, window.innerHeight * 0.60);
     
+    // Hard limit dimensions internally
     canvas.width = size;
     canvas.height = size;
     
+    // CRITICAL: Force CSS layout engine styles to obey the square dimensions
+    canvas.style.width = size + "px";
+    canvas.style.height = size + "px";
+    canvas.style.maxHeight = size + "px";
+    canvas.style.maxWidth = size + "px";
     canvas.style.display = "block";
-    canvas.style.margin = "0 auto";
+    canvas.style.margin = "10px auto 0 auto";
 
     tileSize = size / mazeGrid[0].length;
 
