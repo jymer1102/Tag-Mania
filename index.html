@@ -2,29 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tag Mania</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tag Mania Multiplayer</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+    <div id="alert-banner-container"></div>
+
     <div id="login-screen">
-        <h1>TAG MANIA</h1>
-        <div id="status-box">Connecting to server...</div>
-        
-        <input type="text" id="username-input" placeholder="Enter Username" maxlength="12">
-        
-        <div style="margin: 15px 0;">
-            <label for="color-picker" style="color: white; margin-right: 10px;">Choose Color:</label>
-            <input type="color" id="color-picker" value="#007bff">
+        <div class="card">
+            <h1>TAG MANIA</h1>
+            <div id="status-box">Connecting to network...</div>
+            
+            <input type="text" id="username-input" placeholder="Your Name" maxlength="12">
+            
+            <div class="picker-row">
+                <label for="color-picker">Avatar Color:</label>
+                <input type="color" id="color-picker" value="#ff5722">
+            </div>
+            
+            <button id="start-btn">Join Arena</button>
         </div>
-        
-        <button id="start-btn">Join Game</button>
     </div>
 
     <div id="game-container" style="display: none;">
         <canvas id="gameCanvas"></canvas>
-        
         <div id="joystick-zone">
             <div id="joystick-stick"></div>
         </div>
