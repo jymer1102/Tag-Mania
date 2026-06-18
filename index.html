@@ -62,15 +62,16 @@
         /* Home Screen Server Status Label */
         .server-status-wrapper {
             font-size: 13px;
-            color: #00ffcc;
-            background: rgba(0, 255, 204, 0.1);
+            color: #ffc107;
+            background: rgba(255, 193, 7, 0.1);
             padding: 4px 12px;
             border-radius: 12px;
             margin-bottom: 25px;
             font-weight: bold;
             letter-spacing: 0.5px;
-            border: 1px solid rgba(0, 255, 204, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.2);
             display: inline-block;
+            transition: all 0.3s ease;
         }
         
         /* Input Fields styling */
@@ -212,7 +213,7 @@
     <div id="login-screen">
         <h1>Tag Mania</h1>
         
-        <div class="server-status-wrapper" id="menu-status-label">Checking Server Link...</div>
+        <div class="server-status-wrapper" id="menu-status-label">⚡ CONNECTING TO ARENA SERVER...</div>
         
         <label for="username-input">CHOOSE PLAYER USERNAME</label>
         <input type="text" id="username-input" placeholder="Enter player name..." maxlength="12" autocomplete="off">
@@ -234,18 +235,21 @@
 
     <script src="js/game.js"></script>
     <script>
-        // Synchronize server connection updates to show up directly on the dashboard
+        // Synchronize server connection status cleanly without evaluation overlap
         const checkConnectionInterval = setInterval(() => {
-            const statusBoxText = document.getElementById('status-box').innerText;
+            const statusEl = document.getElementById('status-box');
             const menuStatus = document.getElementById('menu-status-label');
             
-            if (menuStatus && statusBoxText) {
-                if (statusBoxText.includes("Connected") || statusBoxText.includes("Click Join")) {
+            if (menuStatus && statusEl) {
+                const text = statusEl.innerText.trim();
+                
+                // If it contains "Connected" or "Join", OR if it changed from the initial exact "Connecting..." text
+                if (text.includes("Connected") || text.includes("Join") || text.includes("Ready") || (text !== "Connecting..." && text !== "Connecting")) {
                     menuStatus.innerText = "🟢 SERVER READY";
                     menuStatus.style.color = "#00ffcc";
                     menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
                     menuStatus.style.borderColor = "rgba(0, 255, 204, 0.2)";
-                } else if (statusBoxText.includes("Connecting")) {
+                } else {
                     menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
                     menuStatus.style.color = "#ffc107";
                     menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
@@ -254,7 +258,7 @@
             }
         }, 200);
 
-        // Turn off dashboard sync check loop when player clicks the join button
+        // Terminate tracking loop when moving past the home interface
         document.getElementById('start-btn').addEventListener('click', () => {
             clearInterval(checkConnectionInterval);
         });
