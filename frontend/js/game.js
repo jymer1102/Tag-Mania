@@ -156,23 +156,32 @@ socket.on('syncPlayers', (serverPlayers) => {
     for (let id in serverPlayers) {
         let ratioX = serverPlayers[id].x / (15 * 40);
         let ratioY = serverPlayers[id].y / (15 * 40);
+        let targetX = ratioX * canvas.width;
+        let targetY = ratioY * canvas.height;
 
         if (id === myId && players[myId]) {
             players[myId].isIt = serverPlayers[id].isIt;
-            // CLIENT AUTH: Only let the server jump your position if you are frozen
+            // Force authority position adjustment ONLY if frozen
             if (players[myId].isIt && tagCooldown > 0) {
-                players[myId].x = ratioX * canvas.width;
-                players[myId].y = ratioY * canvas.height;
+                players[myId].x = targetX;
+                players[myId].y = targetY;
             }
         } else {
-            if (!players[id]) players[id] = {};
-            players[id].id = serverPlayers[id].id;
-            players[id].name = serverPlayers[id].name;
-            players[id].color = serverPlayers[id].color;
-            players[id].radius = FIXED_RADIUS;
+            if (!players[id]) {
+                players[id] = {
+                    id: serverPlayers[id].id,
+                    name: serverPlayers[id].name,
+                    color: serverPlayers[id].color,
+                    radius: FIXED_RADIUS,
+                    isIt: serverPlayers[id].isIt,
+                    x: targetX,
+                    y: targetY
+                };
+            }
             players[id].isIt = serverPlayers[id].isIt;
-            players[id].x = ratioX * canvas.width;
-            players[id].y = ratioY * canvas.height;
+            // Store target values for remote players to smoothly transition (interpolation)
+            players[id].targetX = targetX;
+            players[id].targetY = targetY;
         }
     }
     for (let id in players) {
@@ -274,9 +283,16 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Render Avatars
+        // Interpolated Remote Rendering Loop
         for (let id in players) {
             let p = players[id];
+            
+            if (id !== myId && p.targetX !== undefined) {
+                // Smoothly slide remote players toward their server coordinates over frames
+                p.x += (p.targetX - p.x) * 0.25;
+                p.y += (p.targetY - p.y) * 0.25;
+            }
+
             let isThisPlayerFrozen = (p.isIt && tagCooldown > 0);
 
             ctx.beginPath();
