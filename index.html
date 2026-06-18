@@ -8,26 +8,33 @@
 </head>
 <body>
 
-    <div id="alert-banner-container"></div>
-
     <div id="login-screen">
-        <div class="card">
-            <h1>TAG MANIA</h1>
-            <div id="status-box">Connecting to network...</div>
-            
-            <input type="text" id="username-input" placeholder="Your Name" maxlength="12">
-            
-            <div class="picker-row">
-                <label for="color-picker">Avatar Color:</label>
-                <input type="color" id="color-picker" value="#ff5722">
-            </div>
-            
-            <button id="start-btn">Join Arena</button>
+        <div class="logo-container">
+            <h1 class="game-title">TAG MANIA</h1>
+            <p class="game-subtitle">Fast-Paced Multiplayer Arena</p>
         </div>
+        
+        <div class="form-group">
+            <label for="username-input">Player Handle</label>
+            <input type="text" id="username-input" placeholder="Enter username..." maxlength="12">
+        </div>
+        
+        <div class="form-group">
+            <label for="color-picker">Avatar Cosmetics</label>
+            <div class="color-picker-wrapper">
+                <input type="color" id="color-picker" value="#007bff">
+                <span class="color-label">Click to choose color</span>
+            </div>
+        </div>
+        
+        <button id="start-btn">ENTER ARENA</button>
+        <div id="status-box">Connecting to server...</div>
     </div>
 
     <div id="game-container" style="display: none;">
+        <div id="notification-box"></div>
         <canvas id="gameCanvas"></canvas>
+        
         <div id="joystick-zone">
             <div id="joystick-stick"></div>
         </div>
