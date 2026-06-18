@@ -1,7 +1,7 @@
 {
   "name": "tag-mania-server",
   "version": "1.0.0",
-  "description": "Multiplayer engine backend",
+  "description": "Multiplayer tag game server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
