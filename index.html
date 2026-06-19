@@ -257,7 +257,7 @@
         </div>
     </div>
 
-    <script src="js/game.js"></script>
+    <script src="game.js"></script>
     
     <script>
         let isReadyToJoin = false;
@@ -282,12 +282,14 @@
 
             let isConnected = false;
 
+            // Direct Socket instance check
             if (typeof socket !== 'undefined' && socket) {
                 if (socket.connected || (socket.io && socket.io.readyState === 'open')) {
                     isConnected = true;
                 }
             }
 
+            // Text scrap backup strategy 
             if (!isConnected && statusEl) {
                 const text = statusEl.innerText.trim();
                 if (text.includes("Connected") || text.includes("Join") || text.includes("Ready") || (text !== "Connecting..." && text !== "Connecting" && text !== "")) {
@@ -309,7 +311,7 @@
                 startBtn.setAttribute('disabled', 'true');
                 startBtn.innerText = "Waiting for Server...";
                 
-                menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
+                menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER... (Render Waking Up)";
                 menuStatus.style.color = "#ffc107";
                 menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
                 menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
