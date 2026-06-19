@@ -172,7 +172,7 @@ socket.on('syncPlayers', (serverPlayers) => {
                     id: serverPlayers[id].id,
                     name: serverPlayers[id].name,
                     color: serverPlayers[id].color,
-                    radius: FIXED_RADIUS,
+                    radius: FIXED_RADIUS, // Hitbox scales to full visual body radius
                     isIt: serverPlayers[id].isIt,
                     x: targetX,
                     y: targetY
@@ -215,7 +215,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
         id: myId,
         name: myUsername,
         color: myChosenColor,
-        radius: FIXED_RADIUS,
+        radius: FIXED_RADIUS, // Hitbox scales to full visual body radius
         x: spawnPixel,
         y: spawnPixel,
         isIt: false
@@ -296,7 +296,6 @@ function gameLoop() {
 
             let isThisPlayerFrozen = (p.isIt && tagCooldown > 0);
 
-            // Refined Micro-Vibration Layer (0.4 pixel shake)
             let renderX = p.x;
             let renderY = p.y;
             if (isThisPlayerFrozen) {
