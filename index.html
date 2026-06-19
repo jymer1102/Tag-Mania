@@ -145,8 +145,9 @@
             transform: none;
         }
 
+        /* Fixed structural gameplay framework */
         #game-container {
-            display: none;
+            display: none !important; /* Managed explicitly via inline injection below */
             position: relative;
             width: 100vw;
             height: 100vh;
@@ -246,8 +247,6 @@
     
     <script>
         let isReadyToJoin = false;
-        
-        // Open a direct status probe to your Render backend link
         const probeSocket = io("https://tag-mania.onrender.com");
 
         document.getElementById('start-btn').addEventListener('click', (e) => {
@@ -255,11 +254,14 @@
                 e.preventDefault();
                 return false;
             }
-            probeSocket.disconnect(); // Close probe to clean up network resources
-            document.getElementById('game-container').style.display = 'flex';
+            probeSocket.disconnect();
+            
+            // Hard override layout styles dynamically to place joystick properly under map
+            document.getElementById('login-screen').style.setProperty('display', 'none', 'important');
+            const gc = document.getElementById('game-container');
+            gc.style.setProperty('display', 'flex', 'important');
         });
 
-        // Monitor connection events cleanly
         probeSocket.on('connect', () => {
             isReadyToJoin = true;
             const startBtn = document.getElementById('start-btn');
@@ -275,7 +277,6 @@
         });
 
         probeSocket.on('disconnect', () => {
-            // Keep status intact if they successfully transitioned past the lobby button click
             if (document.getElementById('game-container').style.display === 'flex') return;
             
             isReadyToJoin = false;
