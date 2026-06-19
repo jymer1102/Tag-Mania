@@ -30,7 +30,6 @@
             overflow: hidden;
         }
         
-        /* Ultra-Cool Cyberpunk Menu Container */
         #login-screen {
             display: flex;
             flex-direction: column;
@@ -47,7 +46,6 @@
             text-align: center;
         }
         
-        /* Animated Neon Header */
         #login-screen h1 {
             font-size: 2.6rem;
             margin-bottom: 5px;
@@ -59,7 +57,6 @@
             text-shadow: 0 0 20px rgba(0, 123, 255, 0.4);
         }
 
-        /* Home Screen Server Status Label */
         .server-status-wrapper {
             font-size: 13px;
             color: #ffc107;
@@ -74,7 +71,6 @@
             transition: all 0.3s ease;
         }
         
-        /* Input Fields styling */
         #login-screen label {
             font-size: 12px;
             color: #8c8c9e;
@@ -102,7 +98,6 @@
             box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
         }
         
-        /* Avatar Color Customizer Config */
         #login-screen input[type="color"] {
             -webkit-appearance: none;
             border: none;
@@ -122,7 +117,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        /* Action Button */
         #login-screen button {
             width: 100%;
             padding: 15px;
@@ -143,10 +137,6 @@
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
         }
-        #login-screen button:active {
-            transform: translateY(1px);
-        }
-        /* Style for when button is disabled waiting for server */
         #login-screen button:disabled {
             background: #2a2a35;
             color: #5a5a6a;
@@ -155,7 +145,6 @@
             transform: none;
         }
 
-        /* Gameplay Structural Flex Layout */
         #game-container {
             display: none;
             position: relative;
@@ -173,7 +162,6 @@
             box-shadow: 0 12px 36px rgba(0,0,0,0.7);
         }
         
-        /* Fixed Game Notifications at the Absolute Top of Screen */
         #notification-box {
             position: absolute;
             top: 20px;
@@ -192,7 +180,6 @@
             box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
         }
 
-        /* Server Status Box Locked Just Over Map Header */
         #status-box {
             position: absolute;
             top: 75px;
@@ -209,7 +196,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
 
-        /* Joystick Container Block Centered Underneath Map */
         #joystick-zone {
             width: 100px;
             height: 100px;
@@ -236,7 +222,6 @@
 
     <div id="login-screen">
         <h1>Tag Mania</h1>
-        
         <div class="server-status-wrapper" id="menu-status-label">⚡ CONNECTING TO ARENA SERVER...</div>
         
         <label for="username-input">CHOOSE PLAYER USERNAME</label>
@@ -261,62 +246,50 @@
     
     <script>
         let isReadyToJoin = false;
+        
+        // Open a direct status probe to your Render backend link
+        const probeSocket = io("https://tag-mania.onrender.com");
 
-        // Force proper layout display styling safely when player joins
         document.getElementById('start-btn').addEventListener('click', (e) => {
             if (!isReadyToJoin) {
                 e.preventDefault();
                 return false;
             }
-            clearInterval(checkConnectionInterval);
+            probeSocket.disconnect(); // Close probe to clean up network resources
             document.getElementById('game-container').style.display = 'flex';
         });
 
-        // Safe connection state engine
-        const checkConnectionInterval = setInterval(() => {
-            const menuStatus = document.getElementById('menu-status-label');
-            const statusEl = document.getElementById('status-box');
+        // Monitor connection events cleanly
+        probeSocket.on('connect', () => {
+            isReadyToJoin = true;
             const startBtn = document.getElementById('start-btn');
+            const menuStatus = document.getElementById('menu-status-label');
             
-            if (!menuStatus) return;
+            startBtn.removeAttribute('disabled');
+            startBtn.innerText = "Join Arena";
+            
+            menuStatus.innerText = "🟢 SERVER READY";
+            menuStatus.style.color = "#00ffcc";
+            menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
+            menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
+        });
 
-            let isConnected = false;
-
-            // Direct Socket instance check
-            if (typeof socket !== 'undefined' && socket) {
-                if (socket.connected || (socket.io && socket.io.readyState === 'open')) {
-                    isConnected = true;
-                }
-            }
-
-            // Text scrap backup strategy 
-            if (!isConnected && statusEl) {
-                const text = statusEl.innerText.trim();
-                if (text.includes("Connected") || text.includes("Join") || text.includes("Ready") || (text !== "Connecting..." && text !== "Connecting" && text !== "")) {
-                    isConnected = true;
-                }
-            }
-
-            if (isConnected) {
-                isReadyToJoin = true;
-                startBtn.removeAttribute('disabled');
-                if(startBtn.innerText === "Waiting for Server...") startBtn.innerText = "Join Arena";
-                
-                menuStatus.innerText = "🟢 SERVER READY";
-                menuStatus.style.color = "#00ffcc";
-                menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
-                menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
-            } else {
-                isReadyToJoin = false;
-                startBtn.setAttribute('disabled', 'true');
-                startBtn.innerText = "Waiting for Server...";
-                
-                menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER... (Render Waking Up)";
-                menuStatus.style.color = "#ffc107";
-                menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
-                menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
-            }
-        }, 300);
+        probeSocket.on('disconnect', () => {
+            // Keep status intact if they successfully transitioned past the lobby button click
+            if (document.getElementById('game-container').style.display === 'flex') return;
+            
+            isReadyToJoin = false;
+            const startBtn = document.getElementById('start-btn');
+            const menuStatus = document.getElementById('menu-status-label');
+            
+            startBtn.setAttribute('disabled', 'true');
+            startBtn.innerText = "Waiting for Server...";
+            
+            menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
+            menuStatus.style.color = "#ffc107";
+            menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
+            menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
+        });
     </script>
 </body>
 </html>
