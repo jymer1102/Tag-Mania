@@ -155,6 +155,7 @@
             transform: none;
         }
 
+        /* Centered game UI frame layout */
         #game-container {
             display: none !important; 
             position: relative;
@@ -162,19 +163,20 @@
             height: 100vh;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
-            padding-top: 70px; 
+            justify-content: center; /* Perfect vertical center layout */
+            padding: 0;
         }
         canvas {
             border: 4px solid #1e1e24;
             border-radius: 12px;
             display: block;
             box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+            margin: 0 auto;
         }
         
         #notification-box {
             position: absolute;
-            top: 20px;
+            top: 20px; /* Kept clean at the top */
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 123, 255, 0.95);
@@ -192,7 +194,7 @@
 
         #status-box {
             position: absolute;
-            top: 75px;
+            top: 65px; /* Positioned clearly below notification box at the top */
             left: 50%;
             transform: translateX(-50%);
             background: rgba(13, 13, 17, 0.9);
@@ -214,7 +216,9 @@
             border-radius: 50%;
             touch-action: none;
             z-index: 5;
-            margin-top: 25px; 
+            position: absolute;
+            bottom: 30px; /* Anchored nicely at bottom under centered map */
+            left: calc(50% - 50px);
         }
         #joystick-stick {
             width: 42px;
@@ -267,7 +271,6 @@
             document.getElementById('game-container').style.setProperty('display', 'flex', 'important');
         });
 
-        // Loop checks the REAL status of your game's connection pipeline directly
         const statusCheckInterval = setInterval(() => {
             const startBtn = document.getElementById('start-btn');
             const menuStatus = document.getElementById('menu-status-label');
@@ -276,7 +279,6 @@
 
             let isConnected = false;
 
-            // Read directly from the intercepted game connection instance
             if (gameSocket) {
                 if (gameSocket.connected || (gameSocket.io && gameSocket.io.readyState === 'open')) {
                     isConnected = true;
@@ -286,7 +288,9 @@
             if (isConnected) {
                 isReadyToJoin = true;
                 startBtn.removeAttribute('disabled');
-                if(startBtn.innerText === "Waiting for Server...") startBtn.innerText = "Join Arena";
+                
+                // Force button text over game.js resets
+                startBtn.innerText = "Join Arena";
                 
                 menuStatus.innerText = "🟢 SERVER READY";
                 menuStatus.style.color = "#00ffcc";
@@ -302,12 +306,11 @@
                 menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
                 menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
                 
-                // If game socket failed its initial handshake, force it to try again immediately
                 if (gameSocket && !gameSocket.connected && typeof gameSocket.connect === 'function') {
                     gameSocket.connect();
                 }
             }
-        }, 500);
+        }, 300); // Faster refresh window to completely stomp over the background file loops
     </script>
 </body>
 </html>
