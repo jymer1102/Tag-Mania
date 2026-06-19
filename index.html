@@ -10,6 +10,16 @@
     <link rel="icon" sizes="192x192" href="favicon.png">
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // FOOL-PROOF INTERCEPTOR: Captures the exact socket instance game.js creates
+        let gameSocket = null;
+        const originalIo = window.io;
+        window.io = function(...args) {
+            const instance = originalIo(...args);
+            gameSocket = instance;
+            return instance;
+        };
+    </script>
     <style>
         * {
             box-sizing: border-box;
@@ -145,9 +155,8 @@
             transform: none;
         }
 
-        /* Fixed structural gameplay framework */
         #game-container {
-            display: none !important; /* Managed explicitly via inline injection below */
+            display: none !important; 
             position: relative;
             width: 100vw;
             height: 100vh;
@@ -247,50 +256,58 @@
     
     <script>
         let isReadyToJoin = false;
-        const probeSocket = io("https://tag-mania.onrender.com");
 
         document.getElementById('start-btn').addEventListener('click', (e) => {
             if (!isReadyToJoin) {
                 e.preventDefault();
                 return false;
             }
-            probeSocket.disconnect();
-            
-            // Hard override layout styles dynamically to place joystick properly under map
+            clearInterval(statusCheckInterval);
             document.getElementById('login-screen').style.setProperty('display', 'none', 'important');
-            const gc = document.getElementById('game-container');
-            gc.style.setProperty('display', 'flex', 'important');
+            document.getElementById('game-container').style.setProperty('display', 'flex', 'important');
         });
 
-        probeSocket.on('connect', () => {
-            isReadyToJoin = true;
+        // Loop checks the REAL status of your game's connection pipeline directly
+        const statusCheckInterval = setInterval(() => {
             const startBtn = document.getElementById('start-btn');
             const menuStatus = document.getElementById('menu-status-label');
             
-            startBtn.removeAttribute('disabled');
-            startBtn.innerText = "Join Arena";
-            
-            menuStatus.innerText = "🟢 SERVER READY";
-            menuStatus.style.color = "#00ffcc";
-            menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
-            menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
-        });
+            if (!startBtn || !menuStatus) return;
 
-        probeSocket.on('disconnect', () => {
-            if (document.getElementById('game-container').style.display === 'flex') return;
-            
-            isReadyToJoin = false;
-            const startBtn = document.getElementById('start-btn');
-            const menuStatus = document.getElementById('menu-status-label');
-            
-            startBtn.setAttribute('disabled', 'true');
-            startBtn.innerText = "Waiting for Server...";
-            
-            menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
-            menuStatus.style.color = "#ffc107";
-            menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
-            menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
-        });
+            let isConnected = false;
+
+            // Read directly from the intercepted game connection instance
+            if (gameSocket) {
+                if (gameSocket.connected || (gameSocket.io && gameSocket.io.readyState === 'open')) {
+                    isConnected = true;
+                }
+            }
+
+            if (isConnected) {
+                isReadyToJoin = true;
+                startBtn.removeAttribute('disabled');
+                if(startBtn.innerText === "Waiting for Server...") startBtn.innerText = "Join Arena";
+                
+                menuStatus.innerText = "🟢 SERVER READY";
+                menuStatus.style.color = "#00ffcc";
+                menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
+                menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
+            } else {
+                isReadyToJoin = false;
+                startBtn.setAttribute('disabled', 'true');
+                startBtn.innerText = "Waiting for Server...";
+                
+                menuStatus.innerText = "⚡ CONNECTING TO ARENA SERVER...";
+                menuStatus.style.color = "#ffc107";
+                menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
+                menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
+                
+                // If game socket failed its initial handshake, force it to try again immediately
+                if (gameSocket && !gameSocket.connected && typeof gameSocket.connect === 'function') {
+                    gameSocket.connect();
+                }
+            }
+        }, 500);
     </script>
 </body>
 </html>
