@@ -87,6 +87,26 @@ let joystickStartY = 0;
 let moveX = 0; 
 let moveY = 0; 
 
+// --- NEW FEATURE: KEYBOARD TRACKING ---
+const keysPressed = {
+    w: false, a: false, s: false, d: false,
+    ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
+};
+
+window.addEventListener('keydown', (e) => {
+    if (e.key in keysPressed) {
+        keysPressed[e.key] = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key in keysPressed) {
+        keysPressed[e.key] = false;
+    }
+});
+
+
+// --- TOUCH CONTROLS (EXISTING) ---
 joystickZone.addEventListener('touchstart', (e) => {
     joystickActive = true;
     const rect = joystickZone.getBoundingClientRect();
@@ -97,8 +117,37 @@ joystickZone.addEventListener('touchstart', (e) => {
 window.addEventListener('touchmove', (e) => {
     if (!joystickActive) return;
     const touch = e.touches[0];
-    let deltaX = touch.clientX - joystickStartX;
-    let deltaY = touch.clientY - joystickStartY;
+    handleJoystickMove(touch.clientX, touch.clientY);
+});
+
+window.addEventListener('touchend', () => {
+    resetJoystick();
+});
+
+
+// --- NEW FEATURE: MOUSE CLICK & DRAG FOR JOYSTICK ---
+joystickZone.addEventListener('mousedown', (e) => {
+    joystickActive = true;
+    const rect = joystickZone.getBoundingClientRect();
+    joystickStartX = rect.left + rect.width / 2;
+    joystickStartY = rect.top + rect.height / 2;
+    handleJoystickMove(e.clientX, e.clientY); // Updates instantly on click
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!joystickActive) return;
+    handleJoystickMove(e.clientX, e.clientY);
+});
+
+window.addEventListener('mouseup', () => {
+    if (joystickActive) resetJoystick();
+});
+
+
+// Helper functions to reuse joystick math for both mouse and touch
+function handleJoystickMove(clientX, clientY) {
+    let deltaX = clientX - joystickStartX;
+    let deltaY = clientY - joystickStartY;
     let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     let maxRadius = 40; 
 
@@ -110,14 +159,15 @@ window.addEventListener('touchmove', (e) => {
     joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
     moveX = deltaX / maxRadius;
     moveY = deltaY / maxRadius;
-});
+}
 
-window.addEventListener('touchend', () => {
+function resetJoystick() {
     joystickActive = false;
     joystickStick.style.transform = 'translate(0px, 0px)';
     moveX = 0;
     moveY = 0;
-});
+}
+
 
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
@@ -172,7 +222,7 @@ socket.on('syncPlayers', (serverPlayers) => {
                     id: serverPlayers[id].id,
                     name: serverPlayers[id].name,
                     color: serverPlayers[id].color,
-                    radius: FIXED_RADIUS, // Hitbox scales to full visual body radius
+                    radius: FIXED_RADIUS, 
                     isIt: serverPlayers[id].isIt,
                     x: targetX,
                     y: targetY
@@ -215,7 +265,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
         id: myId,
         name: myUsername,
         color: myChosenColor,
-        radius: FIXED_RADIUS, // Hitbox scales to full visual body radius
+        radius: FIXED_RADIUS, 
         x: spawnPixel,
         y: spawnPixel,
         isIt: false
@@ -237,8 +287,36 @@ function gameLoop() {
         let me = players[myId];
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         
-        let currentMoveX = isMeFrozen ? 0 : moveX;
-        let currentMoveY = isMeFrozen ? 0 : moveY;
+        // --- NEW FEATURE: INTERPRET KEYBOARD INPUT IF JOYSTICK IS NOT ACTIVE ---
+        let currentMoveX = moveX;
+        let currentMoveY = moveY;
+
+        if (!joystickActive) {
+            if (keysPressed.a || keysPressed.w || keysPressed.s || keysPressed.d ||
+                keysPressed.ArrowLeft || keysPressed.ArrowUp || keysPressed.ArrowDown || keysPressed.ArrowRight) {
+                
+                let kbX = 0;
+                let kbY = 0;
+                if (keysPressed.a || keysPressed.ArrowLeft) kbX -= 1;
+                if (keysPressed.d || keysPressed.ArrowRight) kbX += 1;
+                if (keysPressed.w || keysPressed.ArrowUp) kbY -= 1;
+                if (keysPressed.s || keysPressed.ArrowDown) kbY += 1;
+
+                // Normalize vector for uniform diagonal speed
+                if (kbX !== 0 && kbY !== 0) {
+                    kbX *= 0.7071;
+                    kbY *= 0.7071;
+                }
+                currentMoveX = kbX;
+                currentMoveY = kbY;
+            }
+        }
+
+        if (isMeFrozen) {
+            currentMoveX = 0;
+            currentMoveY = 0;
+        }
+        
         let currentSpeed = isMeFrozen ? 0 : 4.2;
 
         let speedMultiplier = canvas.width / (15 * 40);
