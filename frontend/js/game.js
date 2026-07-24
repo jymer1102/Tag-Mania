@@ -240,7 +240,7 @@ socket.on('syncCooldown', (cooldownTime) => {
 socket.on('systemMessage', (msg) => {
     const notifyBox = document.getElementById('notification-box');
     if (notifyBox) {
-        notifyBox.innerHTML = msg; // Render HTML icons in DOM toast notifications
+        notifyBox.innerHTML = msg;
         notifyBox.style.opacity = "1";
         setTimeout(() => { notifyBox.style.opacity = "0"; }, 3500);
     }
@@ -394,26 +394,48 @@ function gameLoop() {
             ctx.stroke();
             ctx.closePath();
 
-            // --- CANVAS STATUS BADGE (FONTAWESOME UNICODE) ---
+            // --- STATUS BADGE (Crown / Freeze) ---
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
-                ctx.font = '900 11px "Font Awesome 6 Free", sans-serif';
+                ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
                 ctx.textAlign = 'center';
                 
-                // \uf2dc = Snowflake Icon, \uf521 = Crown Icon
-                let badgeText = isThisPlayerFrozen ? '\uf2dc FROZEN' : '\uf521 IT';
+                let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
                 ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
             }
 
-            // --- PLAYER NAME & BOT ICON (FONTAWESOME UNICODE) ---
-            ctx.fillStyle = '#fff';
-            ctx.font = '11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            
+            // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
             let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
-            // \uf544 = Robot Icon
-            let nameText = p.isBot ? '\uf544 ' + cleanName : cleanName;
-            ctx.fillText(nameText, renderX, renderY - dynamicRadius - 4);
+
+            // Standardize text styling for all players and bots
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+
+            if (p.isBot) {
+                // Render Font Awesome robot icon first
+                ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+                let iconWidth = ctx.measureText('\uF544 ').width;
+
+                // Set consistent name font
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                let textWidth = ctx.measureText(cleanName).width;
+
+                let totalWidth = iconWidth + textWidth;
+                let startX = renderX - (totalWidth / 2);
+
+                // Draw Icon
+                ctx.textAlign = 'left';
+                ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
+
+                // Draw Name immediately after icon using standard font
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
+            } else {
+                // Regular Human Player Name
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
+            }
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
