@@ -1,8 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- CONNECT TO MULTIPLAYER SERVER ---
-// Automatically targets relative host (works locally and on production platforms like Render)
 window.socket = io();
 const socket = window.socket;
 
@@ -93,7 +91,6 @@ let joystickStartY = 0;
 let moveX = 0; 
 let moveY = 0; 
 
-// --- KEYBOARD CONTROLS ---
 const keysPressed = {
     w: false, a: false, s: false, d: false,
     ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
@@ -107,7 +104,6 @@ window.addEventListener('keyup', (e) => {
     if (e.key in keysPressed) keysPressed[e.key] = false;
 });
 
-// --- JOYSTICK TOUCH & MOUSE CONTROLS ---
 if (joystickZone) {
     joystickZone.addEventListener('touchstart', (e) => {
         joystickActive = true;
@@ -218,6 +214,7 @@ socket.on('syncPlayers', (serverPlayers) => {
                 players[id] = {
                     id: serverPlayers[id].id,
                     name: serverPlayers[id].name,
+                    isBot: serverPlayers[id].isBot || false,
                     color: serverPlayers[id].color,
                     radius: dynamicRadius, 
                     isIt: serverPlayers[id].isIt,
@@ -242,7 +239,7 @@ socket.on('syncCooldown', (cooldownTime) => {
 socket.on('systemMessage', (msg) => {
     const notifyBox = document.getElementById('notification-box');
     if (notifyBox) {
-        notifyBox.innerHTML = msg; // Allows FontAwesome rendering in DOM notification bar
+        notifyBox.innerHTML = msg; // Render HTML icons in DOM toast notifications
         notifyBox.style.opacity = "1";
         setTimeout(() => { notifyBox.style.opacity = "0"; }, 3500);
     }
@@ -342,8 +339,8 @@ function gameLoop() {
         let currentItName = "Nobody";
         for (let id in players) { 
             if (players[id].isIt) {
-                // Strip HTML tags if the bot name includes FontAwesome icons
-                currentItName = players[id].name.replace(/<[^>]*>?/gm, ''); 
+                // Strip raw HTML tags if name string accidentally contains HTML
+                currentItName = players[id].name.replace(/<[^>]*>?/gm, '');
             } 
         }
         
@@ -387,6 +384,7 @@ function gameLoop() {
                 renderY += Math.cos(Date.now() * 0.08) * 0.4;
             }
 
+            // Draw Player Circle
             ctx.beginPath();
             ctx.arc(renderX, renderY, dynamicRadius, 0, Math.PI * 2);
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
@@ -396,20 +394,27 @@ function gameLoop() {
             ctx.stroke();
             ctx.closePath();
 
-            // Render Player Badges without HTML code
+            // --- CANVAS STATUS BADGE (FONTAWESOME UNICODE) ---
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
-                ctx.font = 'bold 11px sans-serif';
+                ctx.font = '900 11px "Font Awesome 6 Free", sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText(isThisPlayerFrozen ? '❄ FROZEN' : '👑 IT', renderX, renderY - dynamicRadius - 16);
+                
+                // \uf2dc = Snowflake Icon, \uf521 = Crown Icon
+                let badgeText = isThisPlayerFrozen ? '\uf2dc FROZEN' : '\uf521 IT';
+                ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
             }
 
+            // --- PLAYER NAME & BOT ICON (FONTAWESOME UNICODE) ---
             ctx.fillStyle = '#fff';
-            ctx.font = '11px sans-serif';
+            ctx.font = '11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
-            // Strip raw HTML tags from player names so HTML tags aren't printed directly on canvas
-            let cleanName = p.name.replace(/<[^>]*>?/gm, '');
-            ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
+            
+            // Clean text without HTML tags
+            let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
+            // \uf544 = Robot Icon
+            let nameText = p.isBot ? '\uf544 ' + cleanName : cleanName;
+            ctx.fillText(nameText, renderX, renderY - dynamicRadius - 4);
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
