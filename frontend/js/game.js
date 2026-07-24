@@ -404,38 +404,37 @@ function gameLoop() {
                 ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
             }
 
-            // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
-            let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
+           // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
+let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
 
-            // Standardize text styling for all players and bots
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center';
+ctx.fillStyle = '#fff';
+ctx.textAlign = 'center';
 
-            if (p.isBot) {
-                // Render Font Awesome robot icon first
-                ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
-                let iconWidth = ctx.measureText('\uF544 ').width;
+if (p.isBot) {
+    // 1. Set font to Font Awesome 6 Free with weight 900
+    ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+    let iconWidth = ctx.measureText('\uF544 ').width;
 
-                // Set consistent name font
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                let textWidth = ctx.measureText(cleanName).width;
+    // 2. Measure name width in standard font
+    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+    let textWidth = ctx.measureText(cleanName).width;
 
-                let totalWidth = iconWidth + textWidth;
-                let startX = renderX - (totalWidth / 2);
+    let totalWidth = iconWidth + textWidth;
+    let startX = renderX - (totalWidth / 2);
 
-                // Draw Icon
-                ctx.textAlign = 'left';
-                ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
-                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
+    // 3. Draw Robot Icon (\uF544)
+    ctx.textAlign = 'left';
+    ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+    ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
 
-                // Draw Name immediately after icon using standard font
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
-            } else {
-                // Regular Human Player Name
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
-            }
+    // 4. Draw Bot Name in matching style
+    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
+} else {
+    // Regular Human Player Name
+    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
+}
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
