@@ -12,6 +12,15 @@ let isPlaying = false;
 let tagCooldown = 0; 
 let players = {}; 
 
+// Force-load Font Awesome WebFonts into memory before canvas draws
+if (document.fonts) {
+    Promise.all([
+        document.fonts.load('900 11px "Font Awesome 6 Free"'),
+        document.fonts.load('900 11px "Font Awesome 5 Free"'),
+        document.fonts.load('900 11px FontAwesome')
+    ]);
+}
+
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
@@ -36,7 +45,6 @@ let wallThickness = 16;
 let dynamicRadius = 14; 
 const FIXED_RADIUS = 14; 
 
-// Font Awesome canvas font string helper
 const FA_CANVAS_FONT = '900 11px "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome", sans-serif';
 
 function resizeCanvas() {
@@ -372,6 +380,9 @@ function gameLoop() {
             ctx.stroke();
         });
 
+        // Check if Font Awesome loaded into memory
+        let isFaLoaded = document.fonts ? document.fonts.check('900 11px "Font Awesome 6 Free"') : true;
+
         // Render Loop
         for (let id in players) {
             let p = players[id];
@@ -403,38 +414,49 @@ function gameLoop() {
             // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
-                ctx.font = FA_CANVAS_FONT;
                 ctx.textAlign = 'center';
                 
-                let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
-                ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
+                if (isFaLoaded) {
+                    ctx.font = FA_CANVAS_FONT;
+                    let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
+                    ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
+                } else {
+                    ctx.font = 'bold 11px "Segoe UI", sans-serif';
+                    let badgeText = isThisPlayerFrozen ? '❄️ FROZEN' : '👑 IT';
+                    ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
+                }
             }
 
             // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
             let cleanName = p.name.replace(/<[^>]*>?/gm, '').trim(); 
-
             ctx.fillStyle = '#fff';
 
             if (p.isBot) {
-                // 1. Measure icon width (\uF544 = Robot)
-                ctx.font = FA_CANVAS_FONT;
-                let iconWidth = ctx.measureText('\uF544 ').width;
+                if (isFaLoaded) {
+                    // Measure icon width (\uF544 = Robot)
+                    ctx.font = FA_CANVAS_FONT;
+                    let iconWidth = ctx.measureText('\uF544 ').width;
 
-                // 2. Measure text width
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                let textWidth = ctx.measureText(cleanName).width;
+                    // Measure text width
+                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                    let textWidth = ctx.measureText(cleanName).width;
 
-                let totalWidth = iconWidth + textWidth;
-                let startX = renderX - (totalWidth / 2);
+                    let totalWidth = iconWidth + textWidth;
+                    let startX = renderX - (totalWidth / 2);
 
-                // 3. Draw Robot Icon (\uF544)
-                ctx.textAlign = 'left';
-                ctx.font = FA_CANVAS_FONT;
-                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
+                    // Draw Robot Icon (\uF544)
+                    ctx.textAlign = 'left';
+                    ctx.font = FA_CANVAS_FONT;
+                    ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
 
-                // 4. Draw Bot Name
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
+                    // Draw Bot Name
+                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                    ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
+                } else {
+                    ctx.textAlign = 'center';
+                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                    ctx.fillText('🤖 ' + cleanName, renderX, renderY - dynamicRadius - 4);
+                }
             } else {
                 // Regular Human Player Name
                 ctx.textAlign = 'center';
@@ -449,4 +471,12 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
 }
-requestAnimationFrame(gameLoop);
+
+// Start game animation loop after document fonts register
+if (document.fonts) {
+    document.fonts.ready.then(() => {
+        requestAnimationFrame(gameLoop);
+    });
+} else {
+    requestAnimationFrame(gameLoop);
+}
