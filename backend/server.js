@@ -58,14 +58,18 @@ const DIRECTIONS = [
 ];
 
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
+    // Sanitize values against NaNs/out-of-bounds to prevent server crashes
+    startGridX = Math.max(0, Math.min(14, Math.floor(startGridX) || 0));
+    startGridY = Math.max(0, Math.min(14, Math.floor(startGridY) || 0));
+    targetGridX = Math.max(0, Math.min(14, Math.floor(targetGridX) || 0));
+    targetGridY = Math.max(0, Math.min(14, Math.floor(targetGridY) || 0));
+
     if (startGridX === targetGridX && startGridY === targetGridY) return [];
     
     let queue = [ [startGridX, startGridY] ];
     let visited = Array(mazeGrid.length).fill(null).map(() => Array(mazeGrid[0].length).fill(false));
     let parentMap = {};
 
-    startGridX = Math.max(0, Math.min(14, startGridX));
-    startGridY = Math.max(0, Math.min(14, startGridY));
     visited[startGridY][startGridX] = true;
 
     while (queue.length > 0) {
@@ -137,7 +141,7 @@ function handleBotSpawningAndRemoval() {
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
-            name: "<i class="fa-solid fa-robot"></i> Practice Bot",
+            name: '<i class="fa-solid fa-robot"></i> Practice Bot',
             color: "#6c757d",
             x: 540, 
             y: 540,
