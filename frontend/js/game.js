@@ -404,18 +404,18 @@ function gameLoop() {
                 ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
             }
 
-           // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
+      // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
 let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
 
 ctx.fillStyle = '#fff';
 ctx.textAlign = 'center';
 
 if (p.isBot) {
-    // 1. Set font to Font Awesome 6 Free with weight 900
-    ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+    // 1. Target Font Awesome 7 Free with weight 900
+    ctx.font = '900 11px "Font Awesome 7 Free", "Font Awesome 6 Free", "Segoe UI", sans-serif';
     let iconWidth = ctx.measureText('\uF544 ').width;
 
-    // 2. Measure name width in standard font
+    // 2. Measure text width
     ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
     let textWidth = ctx.measureText(cleanName).width;
 
@@ -424,10 +424,10 @@ if (p.isBot) {
 
     // 3. Draw Robot Icon (\uF544)
     ctx.textAlign = 'left';
-    ctx.font = '900 11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
+    ctx.font = '900 11px "Font Awesome 7 Free", "Font Awesome 6 Free", "Segoe UI", sans-serif';
     ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
 
-    // 4. Draw Bot Name in matching style
+    // 4. Draw Bot Name immediately after icon
     ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
     ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
 } else {
