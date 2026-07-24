@@ -137,7 +137,7 @@ function handleBotSpawningAndRemoval() {
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
-            name: "🤖 Practice Bot",
+            name: "<i class="fa-solid fa-robot"></i> Practice Bot",
             color: "#6c757d",
             x: 540, 
             y: 540,
@@ -176,7 +176,7 @@ io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
         activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
         handleBotSpawningAndRemoval();
-        io.emit('systemMessage', `📢 ${activePlayers[socket.id].name} joined the arena!`);
+        io.emit('systemMessage', `<i class="fa-solid fa-bullhorn"></i> ${activePlayers[socket.id].name} joined the arena!`);
         io.emit('syncPlayers', activePlayers);
     });
 
@@ -194,7 +194,7 @@ io.on('connection', (socket) => {
                             activePlayers[socket.id].isIt = false;
                             target.isIt = true;
                             tagCooldown = 3000; 
-                            io.emit('systemMessage', `💥 ${activePlayers[socket.id].name} tagged ${target.name}! 3s FREEZE!`);
+                            io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> ${activePlayers[socket.id].name} tagged ${target.name}! 3s FREEZE! <i class="fa-solid fa-snowflake"></i>`);
                             io.emit('syncCooldown', tagCooldown);
                             break;
                         }
@@ -207,7 +207,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (activePlayers[socket.id]) {
-            io.emit('systemMessage', `❌ ${activePlayers[socket.id].name} left.`);
+            io.emit('systemMessage', `<i class="fa-solid fa-xmark"></i> ${activePlayers[socket.id].name} left.`);
             let wasIt = activePlayers[socket.id].isIt;
             delete activePlayers[socket.id];
             if (wasIt) ensureSomeoneIsIt();
@@ -304,7 +304,7 @@ setInterval(() => {
                     if (dist < (FIXED_RADIUS * 2)) {
                         bot.isIt = false; p.isIt = true; 
                         tagCooldown = 3000; 
-                        io.emit('systemMessage', `💥 Bot tagged ${p.name}! 3s FREEZE!`);
+                        io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> Bot tagged ${p.name}! 3s FREEZE!`);
                         io.emit('syncCooldown', tagCooldown);
                         break;
                     }
