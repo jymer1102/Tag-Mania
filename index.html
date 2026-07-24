@@ -9,17 +9,22 @@
     <link rel="apple-touch-icon" href="favicon.png">
     <link rel="icon" sizes="192x192" href="favicon.png">
     
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://kit.fontawesome.com/570a3df437.js" crossorigin="anonymous"></script>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
     <script>
-        // FOOL-PROOF INTERCEPTOR: Captures the exact socket instance game.js creates
+        // FOOL-PROOF INTERCEPTOR: Safe capture after Socket.IO script loads
         let gameSocket = null;
         const originalIo = window.io;
-        window.io = function(...args) {
-            const instance = originalIo(...args);
-            gameSocket = instance;
-            return instance;
-        };
+        if (typeof originalIo === 'function') {
+            window.io = function(...args) {
+                const instance = originalIo(...args);
+                gameSocket = instance;
+                return instance;
+            };
+        }
     </script>
     <style>
         * {
@@ -249,6 +254,10 @@
     </div>
 
     <div id="game-container">
+        <i class="fa-solid fa-robot" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
+        <i class="fa-solid fa-crown" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
+        <i class="fa-solid fa-snowflake" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
+
         <div id="notification-box"></div>
         <div id="status-box">Connecting...</div>
         <canvas id="gameCanvas"></canvas>
