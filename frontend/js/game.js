@@ -1,7 +1,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-window.socket = io();
+// --- CONNECT TO MULTIPLAYER SERVER ---
+window.socket = io("https://tag-mania.onrender.com");
 const socket = window.socket;
 
 let myId = null;
@@ -339,7 +340,6 @@ function gameLoop() {
         let currentItName = "Nobody";
         for (let id in players) { 
             if (players[id].isIt) {
-                // Strip raw HTML tags if name string accidentally contains HTML
                 currentItName = players[id].name.replace(/<[^>]*>?/gm, '');
             } 
         }
@@ -410,7 +410,6 @@ function gameLoop() {
             ctx.font = '11px "Font Awesome 6 Free", "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
             
-            // Clean text without HTML tags
             let cleanName = p.name.replace(/<[^>]*>?/gm, ''); 
             // \uf544 = Robot Icon
             let nameText = p.isBot ? '\uf544 ' + cleanName : cleanName;
