@@ -58,7 +58,6 @@ const DIRECTIONS = [
 ];
 
 function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
-    // Sanitize values against NaNs/out-of-bounds to prevent server crashes
     startGridX = Math.max(0, Math.min(14, Math.floor(startGridX) || 0));
     startGridY = Math.max(0, Math.min(14, Math.floor(startGridY) || 0));
     targetGridX = Math.max(0, Math.min(14, Math.floor(targetGridX) || 0));
@@ -141,7 +140,8 @@ function handleBotSpawningAndRemoval() {
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
-            name: '<i class="fa-solid fa-robot"></i> Practice Bot',
+            name: "Practice Bot", // Clean string (no HTML)
+            isBot: true,          // Flag to tell frontend to draw robot icon on canvas
             color: "#6c757d",
             x: 540, 
             y: 540,
