@@ -140,8 +140,8 @@ function handleBotSpawningAndRemoval() {
     if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
         activePlayers[BOT_ID] = {
             id: BOT_ID,
-            name: "Practice Bot", // Clean string (no HTML)
-            isBot: true,          // Flag to tell frontend to draw robot icon on canvas
+            name: "Practice Bot",
+            isBot: true,
             color: "#6c757d",
             x: 540, 
             y: 540,
@@ -242,7 +242,8 @@ setInterval(() => {
             }
         }
 
-        let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 4.2; 
+        // SLIGHTLY SLOWER BOT SPEED (3.8 vs 4.2 player speed)
+        let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 3.8; 
         
         let hasLOS = targetPlayer ? checkLineOfSight(bot.x, bot.y, targetPlayer.x, targetPlayer.y) : false;
         let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160 && hasLOS);
