@@ -292,7 +292,7 @@
                 // Force button text over game.js resets
                 startBtn.innerText = "Join Arena";
                 
-                menuStatus.innerText = "<i class="fa-solid fa-circle-check"></i> SERVER READY";
+                menuStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> SERVER READY';
                 menuStatus.style.color = "#00ffcc";
                 menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
                 menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
@@ -301,7 +301,7 @@
                 startBtn.setAttribute('disabled', 'true');
                 startBtn.innerText = "Waiting for Server...";
                 
-                menuStatus.innerText = "<i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...";
+                menuStatus.innerHTML = '<i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...';
                 menuStatus.style.color = "#ffc107";
                 menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
                 menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
