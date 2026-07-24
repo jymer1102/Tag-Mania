@@ -344,9 +344,9 @@ function gameLoop() {
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             if (tagCooldown > 0) {
-                statusBox.innerHTML = `⏳ FREEZE: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
+                statusBox.innerHTML = `<i class="fa-solid fa-hourglass"></i> FREEZE: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
             } else {
-                statusBox.innerHTML = `🏃 ${currentItName} is IT! RUN!`;
+                statusBox.innerHTML = `<i class="fa-solid fa-person-running"></i> ${currentItName} is IT! RUN!`;
             }
         }
 
@@ -393,7 +393,7 @@ function gameLoop() {
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(isThisPlayerFrozen ? '⏳ FROZEN' : '👑 IT', renderX, renderY - p.radius - 16);
+                ctx.fillText(isThisPlayerFrozen ? '<i class="fa-solid fa-hourglass"></i> FROZEN' : '<i class="fa-solid fa-crown"></i> IT', renderX, renderY - p.radius - 16);
             }
 
             ctx.fillStyle = '#fff';
