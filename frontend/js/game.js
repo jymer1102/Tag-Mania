@@ -2,7 +2,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONNECT TO MULTIPLAYER SERVER ---
-window.socket = io("https://tag-mania.onrender.com");
+// Automatically targets relative host (works locally and on production platforms like Render)
+window.socket = io();
 const socket = window.socket;
 
 let myId = null;
@@ -32,7 +33,8 @@ const mazeGrid = [
 
 let wallSegments = [];
 let tileSize = 40; 
-const wallThickness = 16; 
+let wallThickness = 16; 
+let dynamicRadius = 14; 
 const FIXED_RADIUS = 14; 
 
 function resizeCanvas() {
@@ -48,6 +50,8 @@ function resizeCanvas() {
     canvas.style.margin = "10px auto 0 auto";
 
     tileSize = size / mazeGrid[0].length;
+    wallThickness = 16 * (size / 600);
+    dynamicRadius = FIXED_RADIUS * (size / 600);
 
     wallSegments = [];
     for (let r = 0; r < mazeGrid.length; r++) {
@@ -76,10 +80,12 @@ window.addEventListener('beforeunload', () => {
 const joystickZone = document.getElementById('joystick-zone');
 const joystickStick = document.getElementById('joystick-stick');
 
-joystickZone.style.position = "absolute";
-joystickZone.style.bottom = "8%";
-joystickZone.style.left = "50%";
-joystickZone.style.transform = "translateX(-50%)";
+if (joystickZone) {
+    joystickZone.style.position = "absolute";
+    joystickZone.style.bottom = "8%";
+    joystickZone.style.left = "50%";
+    joystickZone.style.transform = "translateX(-50%)";
+}
 
 let joystickActive = false;
 let joystickStartX = 0;
@@ -87,32 +93,37 @@ let joystickStartY = 0;
 let moveX = 0; 
 let moveY = 0; 
 
-// --- NEW FEATURE: KEYBOARD TRACKING ---
+// --- KEYBOARD CONTROLS ---
 const keysPressed = {
     w: false, a: false, s: false, d: false,
     ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
 };
 
 window.addEventListener('keydown', (e) => {
-    if (e.key in keysPressed) {
-        keysPressed[e.key] = true;
-    }
+    if (e.key in keysPressed) keysPressed[e.key] = true;
 });
 
 window.addEventListener('keyup', (e) => {
-    if (e.key in keysPressed) {
-        keysPressed[e.key] = false;
-    }
+    if (e.key in keysPressed) keysPressed[e.key] = false;
 });
 
+// --- JOYSTICK TOUCH & MOUSE CONTROLS ---
+if (joystickZone) {
+    joystickZone.addEventListener('touchstart', (e) => {
+        joystickActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joystickStartX = rect.left + rect.width / 2;
+        joystickStartY = rect.top + rect.height / 2;
+    });
 
-// --- TOUCH CONTROLS (EXISTING) ---
-joystickZone.addEventListener('touchstart', (e) => {
-    joystickActive = true;
-    const rect = joystickZone.getBoundingClientRect();
-    joystickStartX = rect.left + rect.width / 2;
-    joystickStartY = rect.top + rect.height / 2;
-});
+    joystickZone.addEventListener('mousedown', (e) => {
+        joystickActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joystickStartX = rect.left + rect.width / 2;
+        joystickStartY = rect.top + rect.height / 2;
+        handleJoystickMove(e.clientX, e.clientY);
+    });
+}
 
 window.addEventListener('touchmove', (e) => {
     if (!joystickActive) return;
@@ -120,31 +131,16 @@ window.addEventListener('touchmove', (e) => {
     handleJoystickMove(touch.clientX, touch.clientY);
 });
 
-window.addEventListener('touchend', () => {
-    resetJoystick();
-});
-
-
-// --- NEW FEATURE: MOUSE CLICK & DRAG FOR JOYSTICK ---
-joystickZone.addEventListener('mousedown', (e) => {
-    joystickActive = true;
-    const rect = joystickZone.getBoundingClientRect();
-    joystickStartX = rect.left + rect.width / 2;
-    joystickStartY = rect.top + rect.height / 2;
-    handleJoystickMove(e.clientX, e.clientY); // Updates instantly on click
-});
-
 window.addEventListener('mousemove', (e) => {
     if (!joystickActive) return;
     handleJoystickMove(e.clientX, e.clientY);
 });
 
+window.addEventListener('touchend', resetJoystick);
 window.addEventListener('mouseup', () => {
     if (joystickActive) resetJoystick();
 });
 
-
-// Helper functions to reuse joystick math for both mouse and touch
 function handleJoystickMove(clientX, clientY) {
     let deltaX = clientX - joystickStartX;
     let deltaY = clientY - joystickStartY;
@@ -156,18 +152,19 @@ function handleJoystickMove(clientX, clientY) {
         deltaY = (deltaY / distance) * maxRadius;
     }
 
-    joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    if (joystickStick) {
+        joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    }
     moveX = deltaX / maxRadius;
     moveY = deltaY / maxRadius;
 }
 
 function resetJoystick() {
     joystickActive = false;
-    joystickStick.style.transform = 'translate(0px, 0px)';
+    if (joystickStick) joystickStick.style.transform = 'translate(0px, 0px)';
     moveX = 0;
     moveY = 0;
 }
-
 
 function checkLineCollision(px, py, radius, seg) {
     let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
@@ -200,7 +197,7 @@ function checkWallCollision(radius, nextX, nextY) {
 socket.on('connect', () => {
     myId = socket.id;
     const statusBox = document.getElementById('status-box');
-    if(statusBox) statusBox.innerText = "Connected! Click Join.";
+    if (statusBox) statusBox.innerText = "Connected! Click Join.";
 });
 
 socket.on('syncPlayers', (serverPlayers) => {
@@ -222,7 +219,7 @@ socket.on('syncPlayers', (serverPlayers) => {
                     id: serverPlayers[id].id,
                     name: serverPlayers[id].name,
                     color: serverPlayers[id].color,
-                    radius: FIXED_RADIUS, 
+                    radius: dynamicRadius, 
                     isIt: serverPlayers[id].isIt,
                     x: targetX,
                     y: targetY
@@ -245,39 +242,46 @@ socket.on('syncCooldown', (cooldownTime) => {
 socket.on('systemMessage', (msg) => {
     const notifyBox = document.getElementById('notification-box');
     if (notifyBox) {
-        notifyBox.innerText = msg;
+        notifyBox.innerHTML = msg; // Allows FontAwesome rendering in DOM notification bar
         notifyBox.style.opacity = "1";
         setTimeout(() => { notifyBox.style.opacity = "0"; }, 3500);
     }
 });
 
-document.getElementById('start-btn').addEventListener('click', () => {
-    if (!myId) return alert("Connecting to server...");
-    const nameInput = document.getElementById('username-input').value.trim();
-    if (nameInput) myUsername = nameInput;
-    myChosenColor = document.getElementById('color-picker').value;
+const startBtn = document.getElementById('start-btn');
+if (startBtn) {
+    startBtn.addEventListener('click', () => {
+        if (!myId) return alert("Connecting to server...");
+        const nameInput = document.getElementById('username-input')?.value.trim();
+        if (nameInput) myUsername = nameInput;
+        
+        const colorPicker = document.getElementById('color-picker');
+        if (colorPicker) myChosenColor = colorPicker.value;
 
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('game-container').style.display = 'block';
-    
-    let spawnPixel = tileSize * 1.5;
-    players[myId] = {
-        id: myId,
-        name: myUsername,
-        color: myChosenColor,
-        radius: FIXED_RADIUS, 
-        x: spawnPixel,
-        y: spawnPixel,
-        isIt: false
-    };
+        const loginScreen = document.getElementById('login-screen');
+        const gameContainer = document.getElementById('game-container');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (gameContainer) gameContainer.style.display = 'block';
+        
+        let spawnPixel = tileSize * 1.5;
+        players[myId] = {
+            id: myId,
+            name: myUsername,
+            color: myChosenColor,
+            radius: dynamicRadius, 
+            x: spawnPixel,
+            y: spawnPixel,
+            isIt: false
+        };
 
-    socket.emit('playerJoin', {
-        name: myUsername,
-        color: myChosenColor,
-        radius: FIXED_RADIUS
+        socket.emit('playerJoin', {
+            name: myUsername,
+            color: myChosenColor,
+            radius: FIXED_RADIUS
+        });
+        isPlaying = true;
     });
-    isPlaying = true;
-});
+}
 
 function gameLoop() {
     if (isPlaying && players[myId]) {
@@ -287,7 +291,6 @@ function gameLoop() {
         let me = players[myId];
         let isMeFrozen = (me.isIt && tagCooldown > 0);
         
-        // --- NEW FEATURE: INTERPRET KEYBOARD INPUT IF JOYSTICK IS NOT ACTIVE ---
         let currentMoveX = moveX;
         let currentMoveY = moveY;
 
@@ -302,7 +305,6 @@ function gameLoop() {
                 if (keysPressed.w || keysPressed.ArrowUp) kbY -= 1;
                 if (keysPressed.s || keysPressed.ArrowDown) kbY += 1;
 
-                // Normalize vector for uniform diagonal speed
                 if (kbX !== 0 && kbY !== 0) {
                     kbX *= 0.7071;
                     kbY *= 0.7071;
@@ -318,20 +320,19 @@ function gameLoop() {
         }
         
         let currentSpeed = isMeFrozen ? 0 : 4.2;
-
         let speedMultiplier = canvas.width / (15 * 40);
         let nextMeX = me.x + (currentMoveX * currentSpeed * speedMultiplier);
         let nextMeY = me.y + (currentMoveY * currentSpeed * speedMultiplier);
         
         if (!isMeFrozen) {
-            if (!checkWallCollision(me.radius, nextMeX, me.y)) me.x = nextMeX;
-            if (!checkWallCollision(me.radius, me.x, nextMeY)) me.y = nextMeY;
+            if (!checkWallCollision(dynamicRadius, nextMeX, me.y)) me.x = nextMeX;
+            if (!checkWallCollision(dynamicRadius, me.x, nextMeY)) me.y = nextMeY;
 
             if (me.x > canvas.width) me.x = me.x - canvas.width;
             else if (me.x < 0) me.x = me.x + canvas.width;
 
-            if (me.y - me.radius < 0) me.y = me.radius;
-            if (me.y + me.radius > canvas.height) me.y = canvas.height - me.radius;
+            if (me.y - dynamicRadius < 0) me.y = dynamicRadius;
+            if (me.y + dynamicRadius > canvas.height) me.y = canvas.height - dynamicRadius;
         }
 
         let uploadX = (me.x / canvas.width) * (15 * 40);
@@ -339,7 +340,12 @@ function gameLoop() {
         socket.emit('playerMove', { x: uploadX, y: uploadY });
 
         let currentItName = "Nobody";
-        for(let id in players) { if(players[id].isIt) currentItName = players[id].name; }
+        for (let id in players) { 
+            if (players[id].isIt) {
+                // Strip HTML tags if the bot name includes FontAwesome icons
+                currentItName = players[id].name.replace(/<[^>]*>?/gm, ''); 
+            } 
+        }
         
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
@@ -352,9 +358,9 @@ function gameLoop() {
 
         // Draw Walls
         ctx.strokeStyle = '#ffffff'; 
-        ctx.lineWidth = wallThickness * (canvas.width / 600);          
-        ctx.lineCap = 'round';       
-        ctx.lineJoin = 'round';      
+        ctx.lineWidth = wallThickness;          
+        ctx.lineCap = 'round';        
+        ctx.lineJoin = 'round';       
 
         wallSegments.forEach(seg => {
             ctx.beginPath();
@@ -382,7 +388,7 @@ function gameLoop() {
             }
 
             ctx.beginPath();
-            ctx.arc(renderX, renderY, p.radius, 0, Math.PI * 2);
+            ctx.arc(renderX, renderY, dynamicRadius, 0, Math.PI * 2);
             ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
             ctx.fill();
             ctx.lineWidth = 2;
@@ -390,16 +396,20 @@ function gameLoop() {
             ctx.stroke();
             ctx.closePath();
 
+            // Render Player Badges without HTML code
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(isThisPlayerFrozen ? '<i class="fa-solid fa-hourglass"></i> FROZEN' : '<i class="fa-solid fa-crown"></i> IT', renderX, renderY - p.radius - 16);
+                ctx.textAlign = 'center';
+                ctx.fillText(isThisPlayerFrozen ? '❄ FROZEN' : '👑 IT', renderX, renderY - dynamicRadius - 16);
             }
 
             ctx.fillStyle = '#fff';
             ctx.font = '11px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(p.name, renderX, renderY - p.radius - 4);
+            // Strip raw HTML tags from player names so HTML tags aren't printed directly on canvas
+            let cleanName = p.name.replace(/<[^>]*>?/gm, '');
+            ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
