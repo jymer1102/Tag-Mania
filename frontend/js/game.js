@@ -203,9 +203,28 @@ function checkWallCollision(radius, nextX, nextY) {
 }
 
 socket.on('connect', () => {
+    const previousId = myId;
     myId = socket.id;
     const statusBox = document.getElementById('status-box');
     if (statusBox) statusBox.innerText = "Connected! Click Join.";
+
+    // If this is a RECONNECT while already playing, Socket.IO has handed us
+    // a brand new id. Remap our local player object to the new id and
+    // re-register with the server — otherwise players[myId] never matches
+    // anything again and the whole game loop (movement, bot updates, icons)
+    // silently stops running every frame.
+    if (isPlaying) {
+        if (previousId && players[previousId]) {
+            players[myId] = players[previousId];
+            players[myId].id = myId;
+            if (previousId !== myId) delete players[previousId];
+        }
+        socket.emit('playerJoin', {
+            name: myUsername,
+            color: myChosenColor,
+            radius: FIXED_RADIUS
+        });
+    }
 });
 
 socket.on('syncPlayers', (serverPlayers) => {
@@ -238,6 +257,18 @@ socket.on('syncPlayers', (serverPlayers) => {
             }
             players[id].isIt = serverPlayers[id].isIt;
             players[id].isBot = isBotPlayer;
+
+            // Portal wrap detection: if the new position is a huge jump from
+            // where this player currently is, it's a teleport (portal), not
+            // normal movement — snap instantly instead of smoothly lerping
+            // across the whole map.
+            if (Math.abs(targetX - players[id].x) > canvas.width * 0.5) {
+                players[id].x = targetX;
+            }
+            if (Math.abs(targetY - players[id].y) > canvas.height * 0.5) {
+                players[id].y = targetY;
+            }
+
             players[id].targetX = targetX;
             players[id].targetY = targetY;
         }
@@ -380,9 +411,6 @@ function gameLoop() {
             ctx.stroke();
         });
 
-        // Check if Font Awesome loaded into memory
-        let isFaLoaded = document.fonts ? document.fonts.check('900 11px "Font Awesome 6 Free"') : true;
-
         // Render Loop
         for (let id in players) {
             let p = players[id];
@@ -415,16 +443,9 @@ function gameLoop() {
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
                 ctx.textAlign = 'center';
-                
-                if (isFaLoaded) {
-                    ctx.font = FA_CANVAS_FONT;
-                    let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
-                    ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
-                } else {
-                    ctx.font = 'bold 11px "Segoe UI", sans-serif';
-                    let badgeText = isThisPlayerFrozen ? '❄️ FROZEN' : '👑 IT';
-                    ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
-                }
+                ctx.font = FA_CANVAS_FONT;
+                let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
+                ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
             }
 
             // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
@@ -432,31 +453,25 @@ function gameLoop() {
             ctx.fillStyle = '#fff';
 
             if (p.isBot) {
-                if (isFaLoaded) {
-                    // Measure icon width (\uF544 = Robot)
-                    ctx.font = FA_CANVAS_FONT;
-                    let iconWidth = ctx.measureText('\uF544 ').width;
+                // Measure icon width (\uF544 = Robot)
+                ctx.font = FA_CANVAS_FONT;
+                let iconWidth = ctx.measureText('\uF544 ').width;
 
-                    // Measure text width
-                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                    let textWidth = ctx.measureText(cleanName).width;
+                // Measure text width
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                let textWidth = ctx.measureText(cleanName).width;
 
-                    let totalWidth = iconWidth + textWidth;
-                    let startX = renderX - (totalWidth / 2);
+                let totalWidth = iconWidth + textWidth;
+                let startX = renderX - (totalWidth / 2);
 
-                    // Draw Robot Icon (\uF544)
-                    ctx.textAlign = 'left';
-                    ctx.font = FA_CANVAS_FONT;
-                    ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
+                // Draw Robot Icon (\uF544)
+                ctx.textAlign = 'left';
+                ctx.font = FA_CANVAS_FONT;
+                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
 
-                    // Draw Bot Name
-                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                    ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
-                } else {
-                    ctx.textAlign = 'center';
-                    ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                    ctx.fillText('🤖 ' + cleanName, renderX, renderY - dynamicRadius - 4);
-                }
+                // Draw Bot Name
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
             } else {
                 // Regular Human Player Name
                 ctx.textAlign = 'center';
