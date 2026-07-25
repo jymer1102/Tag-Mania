@@ -314,10 +314,11 @@
                 menuStatus.style.color = "#ffc107";
                 menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
                 menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
-                
-                if (gameSocket && !gameSocket.connected && typeof gameSocket.connect === 'function') {
-                    gameSocket.connect();
-                }
+                // Note: no manual gameSocket.connect() call here on purpose.
+                // Socket.IO already auto-connects and auto-reconnects with
+                // its own backoff; forcing .connect() on every 300ms tick
+                // was interrupting in-flight handshakes and causing the
+                // connect/disconnect flicker.
             }
         }, 300); // Faster refresh window to completely stomp over the background file loops
     </script>
