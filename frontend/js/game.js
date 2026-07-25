@@ -442,10 +442,27 @@ function gameLoop() {
             // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
-                ctx.textAlign = 'center';
+
+                let iconChar = isThisPlayerFrozen ? '\uF2DC' : '\uF521';
+                let labelText = isThisPlayerFrozen ? ' FROZEN' : ' IT';
+                let badgeY = renderY - dynamicRadius - 16;
+
+                // Measure icon + text so the combined badge stays centered
                 ctx.font = FA_CANVAS_FONT;
-                let badgeText = isThisPlayerFrozen ? '\uF2DC FROZEN' : '\uF521 IT';
-                ctx.fillText(badgeText, renderX, renderY - dynamicRadius - 16);
+                let iconWidth = ctx.measureText(iconChar).width;
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                let labelWidth = ctx.measureText(labelText).width;
+                let badgeStartX = renderX - ((iconWidth + labelWidth) / 2);
+
+                ctx.textAlign = 'left';
+
+                // Draw icon in Font Awesome
+                ctx.font = FA_CANVAS_FONT;
+                ctx.fillText(iconChar, badgeStartX, badgeY);
+
+                // Draw label text in the game's normal font
+                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+                ctx.fillText(labelText, badgeStartX + iconWidth, badgeY);
             }
 
             // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
