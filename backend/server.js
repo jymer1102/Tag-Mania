@@ -1,25 +1,21 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 
-// --- CONNECT TO MULTIPLAYER SERVER ---
-window.socket = io("https://tag-mania.onrender.com");
-const socket = window.socket;
+const app = express();
+app.use(cors({ origin: "*", methods: ["GET", "POST"] }));
 
-let myId = null;
-let myUsername = "Player";
-let myChosenColor = "#007bff";
-let isPlaying = false;
-let tagCooldown = 0; 
-let players = {}; 
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
-// Force-load Font Awesome WebFonts into memory before canvas draws
-if (document.fonts) {
-    Promise.all([
-        document.fonts.load('900 11px "Font Awesome 6 Free"'),
-        document.fonts.load('900 11px "Font Awesome 5 Free"'),
-        document.fonts.load('900 11px FontAwesome')
-    ]);
-}
+let activePlayers = {};
+let tagCooldown = 0;
+const BOT_ID = "SERVER_BOT_999";
+const FIXED_RADIUS = 14; 
+const wallThickness = 16;
 
 const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -39,459 +35,292 @@ const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
+const tileSize = 40;
+const MAP_SIZE = 15 * tileSize;
+
 let wallSegments = [];
-let tileSize = 40; 
-let wallThickness = 16; 
-let dynamicRadius = 14; 
-const FIXED_RADIUS = 14; 
-
-const FA_CANVAS_FONT = '900 11px "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome", sans-serif';
-
-function resizeCanvas() {
-    let size = Math.min(window.innerWidth, window.innerHeight * 0.60);
-    canvas.width = size;
-    canvas.height = size;
-    
-    canvas.style.width = size + "px";
-    canvas.style.height = size + "px";
-    canvas.style.maxHeight = size + "px";
-    canvas.style.maxWidth = size + "px";
-    canvas.style.display = "block";
-    canvas.style.margin = "10px auto 0 auto";
-
-    tileSize = size / mazeGrid[0].length;
-    wallThickness = 16 * (size / 600);
-    dynamicRadius = FIXED_RADIUS * (size / 600);
-
-    wallSegments = [];
-    for (let r = 0; r < mazeGrid.length; r++) {
-        for (let c = 0; c < mazeGrid[r].length; c++) {
-            if (mazeGrid[r][c] === 1) {
-                let startX = c * tileSize + tileSize / 2;
-                let startY = r * tileSize + tileSize / 2;
-
-                if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
-                    wallSegments.push({ x1: startX, y1: startY, x2: (c + 1) * tileSize + tileSize / 2, y2: startY });
-                }
-                if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
-                    wallSegments.push({ x1: startX, y1: startY, x2: startX, y2: (r + 1) * tileSize + tileSize / 2 });
-                }
+for (let r = 0; r < mazeGrid.length; r++) {
+    for (let c = 0; c < mazeGrid[r].length; c++) {
+        if (mazeGrid[r][c] === 1) {
+            let startX = c * tileSize + tileSize / 2;
+            let startY = r * tileSize + tileSize / 2;
+            if (c + 1 < mazeGrid[r].length && mazeGrid[r][c + 1] === 1) {
+                wallSegments.push({ x1: startX, y1: startY, x2: (c + 1) * tileSize + tileSize / 2, y2: startY });
+            }
+            if (r + 1 < mazeGrid.length && mazeGrid[r + 1][c] === 1) {
+                wallSegments.push({ x1: startX, y1: startY, x2: startX, y2: (r + 1) * tileSize + tileSize / 2 });
             }
         }
     }
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
 
-window.addEventListener('beforeunload', () => {
-    socket.disconnect();
-});
+const DIRECTIONS = [
+    {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}
+];
 
-const joystickZone = document.getElementById('joystick-zone');
-const joystickStick = document.getElementById('joystick-stick');
+function findShortestPath(startGridX, startGridY, targetGridX, targetGridY) {
+    startGridX = Math.max(0, Math.min(14, Math.floor(startGridX) || 0));
+    startGridY = Math.max(0, Math.min(14, Math.floor(startGridY) || 0));
+    targetGridX = Math.max(0, Math.min(14, Math.floor(targetGridX) || 0));
+    targetGridY = Math.max(0, Math.min(14, Math.floor(targetGridY) || 0));
 
-if (joystickZone) {
-    joystickZone.style.position = "absolute";
-    joystickZone.style.bottom = "8%";
-    joystickZone.style.left = "50%";
-    joystickZone.style.transform = "translateX(-50%)";
-}
+    if (startGridX === targetGridX && startGridY === targetGridY) return [];
+    
+    let queue = [ [startGridX, startGridY] ];
+    let visited = Array(mazeGrid.length).fill(null).map(() => Array(mazeGrid[0].length).fill(false));
+    let parentMap = {};
 
-let joystickActive = false;
-let joystickStartX = 0;
-let joystickStartY = 0;
-let moveX = 0; 
-let moveY = 0; 
+    visited[startGridY][startGridX] = true;
 
-const keysPressed = {
-    w: false, a: false, s: false, d: false,
-    ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
-};
+    while (queue.length > 0) {
+        let [cx, cy] = queue.shift();
 
-window.addEventListener('keydown', (e) => {
-    if (e.key in keysPressed) keysPressed[e.key] = true;
-});
+        if (cx === targetGridX && cy === targetGridY) {
+            let path = [];
+            let key = `${cx},${cy}`;
+            while (key) {
+                let p = parentMap[key];
+                if (!p) break;
+                path.push(p.current);
+                key = p.parentKey;
+            }
+            return path.reverse(); 
+        }
 
-window.addEventListener('keyup', (e) => {
-    if (e.key in keysPressed) keysPressed[e.key] = false;
-});
+        for (let dir of DIRECTIONS) {
+            let nx = cx + dir.x;
+            let ny = cy + dir.y;
 
-if (joystickZone) {
-    joystickZone.addEventListener('touchstart', (e) => {
-        joystickActive = true;
-        const rect = joystickZone.getBoundingClientRect();
-        joystickStartX = rect.left + rect.width / 2;
-        joystickStartY = rect.top + rect.height / 2;
-    });
+            if (ny === 7) {
+                if (nx < 0) nx = 14;
+                if (nx > 14) nx = 0;
+            }
 
-    joystickZone.addEventListener('mousedown', (e) => {
-        joystickActive = true;
-        const rect = joystickZone.getBoundingClientRect();
-        joystickStartX = rect.left + rect.width / 2;
-        joystickStartY = rect.top + rect.height / 2;
-        handleJoystickMove(e.clientX, e.clientY);
-    });
-}
-
-window.addEventListener('touchmove', (e) => {
-    if (!joystickActive) return;
-    const touch = e.touches[0];
-    handleJoystickMove(touch.clientX, touch.clientY);
-});
-
-window.addEventListener('mousemove', (e) => {
-    if (!joystickActive) return;
-    handleJoystickMove(e.clientX, e.clientY);
-});
-
-window.addEventListener('touchend', resetJoystick);
-window.addEventListener('mouseup', () => {
-    if (joystickActive) resetJoystick();
-});
-
-function handleJoystickMove(clientX, clientY) {
-    let deltaX = clientX - joystickStartX;
-    let deltaY = clientY - joystickStartY;
-    let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    let maxRadius = 40; 
-
-    if (distance > maxRadius) {
-        deltaX = (deltaX / distance) * maxRadius;
-        deltaY = (deltaY / distance) * maxRadius;
+            if (nx >= 0 && nx < 15 && ny >= 0 && ny < 15) {
+                if (mazeGrid[ny][nx] === 0 && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    parentMap[`${nx},${ny}`] = { current: {x: nx, y: ny}, parentKey: `${cx},${cy}` };
+                    queue.push([nx, ny]);
+                }
+            }
+        }
     }
-
-    if (joystickStick) {
-        joystickStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-    }
-    moveX = deltaX / maxRadius;
-    moveY = deltaY / maxRadius;
+    return [];
 }
 
-function resetJoystick() {
-    joystickActive = false;
-    if (joystickStick) joystickStick.style.transform = 'translate(0px, 0px)';
-    moveX = 0;
-    moveY = 0;
+function lineIntersects(x1, y1, x2, y2, x3, y3, x4, y4) {
+    let det = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+    if (det === 0) return false;
+    let lambda = ((y4 - y3) * (x4 - x1) + (x3 - x4) * (y4 - y1)) / det;
+    let gamma = ((y1 - y2) * (x4 - x1) + (x2 - x1) * (y4 - y1)) / det;
+    return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
 }
 
-function checkLineCollision(px, py, radius, seg) {
-    let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
-    if (l2 === 0) return Math.sqrt((px - seg.x1) ** 2 + (py - seg.y1) ** 2) < (radius + (wallThickness / 2));
-    
-    let t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
-    t = Math.max(0, Math.min(1, t)); 
-    
-    let closestX = seg.x1 + t * (seg.x2 - seg.x1);
-    let closestY = seg.y1 + t * (seg.y2 - seg.y1);
-    let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
-    
-    return dist < (radius + (wallThickness / 2)); 
-}
-
-function checkWallCollision(radius, nextX, nextY) {
-    if (nextY > tileSize * 6.6 && nextY < tileSize * 7.4) {
-        if (nextX < tileSize * 0.5 || nextX > (mazeGrid[0].length * tileSize) - (tileSize * 0.5)) {
+function checkLineOfSight(x1, y1, x2, y2) {
+    for (let seg of wallSegments) {
+        if (lineIntersects(x1, y1, x2, y2, seg.x1, seg.y1, seg.x2, seg.y2)) {
             return false;
         }
     }
+    return true;
+}
+
+function ensureSomeoneIsIt() {
+    let ids = Object.keys(activePlayers);
+    if (ids.length === 0) return;
+    
+    let itCount = ids.filter(id => activePlayers[id].isIt).length;
+    if (itCount === 0) {
+        if (activePlayers[BOT_ID]) activePlayers[BOT_ID].isIt = true;
+        else activePlayers[ids[0]].isIt = true;
+    }
+}
+
+function handleBotSpawningAndRemoval() {
+    let humanIds = Object.keys(activePlayers).filter(id => id !== BOT_ID);
+    if (humanIds.length <= 1 && !activePlayers[BOT_ID]) {
+        activePlayers[BOT_ID] = {
+            id: BOT_ID,
+            name: "Practice Bot",
+            isBot: true,
+            color: "#6c757d",
+            x: 540, 
+            y: 540,
+            radius: FIXED_RADIUS,
+            isIt: true,
+            dirX: -1,
+            dirY: 0
+        };
+        if(humanIds.length === 1) activePlayers[humanIds[0]].isIt = false;
+    } else if (humanIds.length > 1 && activePlayers[BOT_ID]) {
+        delete activePlayers[BOT_ID];
+    }
+    ensureSomeoneIsIt();
+}
+
+function checkBotWallCollision(px, py, radius) {
+    if (py > tileSize * 6.6 && py < tileSize * 7.4) {
+        if (px < tileSize * 0.5 || px > MAP_SIZE - (tileSize * 0.5)) return false;
+    }
     for (let seg of wallSegments) {
-        if (checkLineCollision(nextX, nextY, radius, seg)) {
-            return true;
+        let l2 = (seg.x1 - seg.x2) ** 2 + (seg.y1 - seg.y2) ** 2;
+        let t = 0;
+        if (l2 !== 0) {
+            t = ((px - seg.x1) * (seg.x2 - seg.x1) + (py - seg.y1) * (seg.y2 - seg.y1)) / l2;
+            t = Math.max(0, Math.min(1, t));
         }
+        let closestX = seg.x1 + t * (seg.x2 - seg.x1);
+        let closestY = seg.y1 + t * (seg.y2 - seg.y1);
+        let dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+        if (dist < (radius + (wallThickness / 2))) return true;
     }
     return false;
 }
 
-socket.on('connect', () => {
-    const previousId = myId;
-    myId = socket.id;
-    const statusBox = document.getElementById('status-box');
-    if (statusBox) statusBox.innerText = "Connected! Click Join.";
-
-    if (isPlaying) {
-        if (previousId && players[previousId]) {
-            players[myId] = players[previousId];
-            players[myId].id = myId;
-            if (previousId !== myId) delete players[previousId];
-        }
-        socket.emit('playerJoin', {
-            name: myUsername,
-            color: myChosenColor,
-            radius: FIXED_RADIUS
-        });
-    }
-});
-
-socket.on('syncPlayers', (serverPlayers) => {
-    for (let id in serverPlayers) {
-        let ratioX = serverPlayers[id].x / (15 * 40);
-        let ratioY = serverPlayers[id].y / (15 * 40);
-        let targetX = ratioX * canvas.width;
-        let targetY = ratioY * canvas.height;
-
-        let isBotPlayer = serverPlayers[id].isBot || id === "SERVER_BOT_999" || (serverPlayers[id].name && serverPlayers[id].name.toLowerCase().includes("bot"));
-
-        if (id === myId && players[myId]) {
-            players[myId].isIt = serverPlayers[id].isIt;
-            if (players[myId].isIt && tagCooldown > 0) {
-                players[myId].x = targetX;
-                players[myId].y = targetY;
-            }
-        } else {
-            if (!players[id]) {
-                players[id] = {
-                    id: serverPlayers[id].id,
-                    name: serverPlayers[id].name,
-                    isBot: isBotPlayer,
-                    color: serverPlayers[id].color,
-                    radius: dynamicRadius, 
-                    isIt: serverPlayers[id].isIt,
-                    x: targetX,
-                    y: targetY
-                };
-            }
-            players[id].isIt = serverPlayers[id].isIt;
-            players[id].isBot = isBotPlayer;
-
-            if (Math.abs(targetX - players[id].x) > canvas.width * 0.5) {
-                players[id].x = targetX;
-            }
-            if (Math.abs(targetY - players[id].y) > canvas.height * 0.5) {
-                players[id].y = targetY;
-            }
-
-            players[id].targetX = targetX;
-            players[id].targetY = targetY;
-        }
-    }
-    for (let id in players) {
-        if (!serverPlayers[id]) delete players[id];
-    }
-});
-
-socket.on('syncCooldown', (cooldownTime) => {
-    tagCooldown = cooldownTime;
-});
-
-socket.on('systemMessage', (msg) => {
-    const notifyBox = document.getElementById('notification-box');
-    if (notifyBox) {
-        notifyBox.innerHTML = msg;
-        notifyBox.style.opacity = "1";
-        setTimeout(() => { notifyBox.style.opacity = "0"; }, 3500);
-    }
-});
-
-const startBtn = document.getElementById('start-btn');
-if (startBtn) {
-    startBtn.addEventListener('click', () => {
-        if (!myId) return alert("Connecting to server...");
-        const nameInput = document.getElementById('username-input')?.value.trim();
-        if (nameInput) myUsername = nameInput;
-        
-        const colorPicker = document.getElementById('color-picker');
-        if (colorPicker) myChosenColor = colorPicker.value;
-
-        const loginScreen = document.getElementById('login-screen');
-        const gameContainer = document.getElementById('game-container');
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (gameContainer) gameContainer.style.display = 'block';
-        
-        let spawnPixel = tileSize * 1.5;
-        players[myId] = {
-            id: myId,
-            name: myUsername,
-            color: myChosenColor,
-            radius: dynamicRadius, 
-            x: spawnPixel,
-            y: spawnPixel,
-            isIt: false
-        };
-
-        socket.emit('playerJoin', {
-            name: myUsername,
-            color: myChosenColor,
-            radius: FIXED_RADIUS
-        });
-        isPlaying = true;
+io.on('connection', (socket) => {
+    socket.on('playerJoin', (data) => {
+        activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
+        handleBotSpawningAndRemoval();
+        io.emit('systemMessage', `<i class="fa-solid fa-bullhorn"></i> ${activePlayers[socket.id].name} joined the arena!`);
+        io.emit('syncPlayers', activePlayers);
     });
-}
 
-function gameLoop() {
-    if (isPlaying && players[myId]) {
-        ctx.fillStyle = '#222';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        let me = players[myId];
-        let isMeFrozen = (me.isIt && tagCooldown > 0);
-        
-        let currentMoveX = moveX;
-        let currentMoveY = moveY;
-
-        if (!joystickActive) {
-            if (keysPressed.a || keysPressed.w || keysPressed.s || keysPressed.d ||
-                keysPressed.ArrowLeft || keysPressed.ArrowUp || keysPressed.ArrowDown || keysPressed.ArrowRight) {
-                
-                let kbX = 0;
-                let kbY = 0;
-                if (keysPressed.a || keysPressed.ArrowLeft) kbX -= 1;
-                if (keysPressed.d || keysPressed.ArrowRight) kbX += 1;
-                if (keysPressed.w || keysPressed.ArrowUp) kbY -= 1;
-                if (keysPressed.s || keysPressed.ArrowDown) kbY += 1;
-
-                if (kbX !== 0 && kbY !== 0) {
-                    kbX *= 0.7071;
-                    kbY *= 0.7071;
-                }
-                currentMoveX = kbX;
-                currentMoveY = kbY;
-            }
-        }
-
-        if (isMeFrozen) {
-            currentMoveX = 0;
-            currentMoveY = 0;
-        }
-        
-        let currentSpeed = isMeFrozen ? 0 : 4.2;
-        let speedMultiplier = canvas.width / (15 * 40);
-        let nextMeX = me.x + (currentMoveX * currentSpeed * speedMultiplier);
-        let nextMeY = me.y + (currentMoveY * currentSpeed * speedMultiplier);
-        
-        if (!isMeFrozen) {
-            if (!checkWallCollision(dynamicRadius, nextMeX, me.y)) me.x = nextMeX;
-            if (!checkWallCollision(dynamicRadius, me.x, nextMeY)) me.y = nextMeY;
-
-            if (me.x > canvas.width) me.x = me.x - canvas.width;
-            else if (me.x < 0) me.x = me.x + canvas.width;
-
-            if (me.y - dynamicRadius < 0) me.y = dynamicRadius;
-            if (me.y + dynamicRadius > canvas.height) me.y = canvas.height - dynamicRadius;
-        }
-
-        let uploadX = (me.x / canvas.width) * (15 * 40);
-        let uploadY = (me.y / canvas.height) * (15 * 40);
-        socket.emit('playerMove', { x: uploadX, y: uploadY });
-
-        let currentItName = "Nobody";
-        for (let id in players) { 
-            if (players[id].isIt) {
-                currentItName = players[id].name.replace(/<[^>]*>?/gm, '').trim();
-            } 
-        }
-        
-        const statusBox = document.getElementById('status-box');
-        if (statusBox) {
-            if (tagCooldown > 0) {
-                statusBox.innerHTML = `<i class="fa-solid fa-hourglass"></i> FREEZE: ${(tagCooldown/1000).toFixed(1)}s <br> ${currentItName} is IT!`;
-            } else {
-                statusBox.innerHTML = `<i class="fa-solid fa-person-running"></i> ${currentItName} is IT! RUN!`;
-            }
-        }
-
-        // Draw Walls
-        ctx.strokeStyle = '#ffffff'; 
-        ctx.lineWidth = wallThickness;          
-        ctx.lineCap = 'round';        
-        ctx.lineJoin = 'round';       
-
-        wallSegments.forEach(seg => {
-            ctx.beginPath();
-            ctx.moveTo(seg.x1, seg.y1);
-            ctx.lineTo(seg.x2, seg.y2);
-            ctx.stroke();
-        });
-
-        // Render Loop
-        for (let id in players) {
-            let p = players[id];
+    socket.on('playerMove', (data) => {
+        if (activePlayers[socket.id]) {
+            activePlayers[socket.id].x = data.x;
+            activePlayers[socket.id].y = data.y;
             
-            if (id !== myId && p.targetX !== undefined) {
-                p.x += (p.targetX - p.x) * 0.25;
-                p.y += (p.targetY - p.y) * 0.25;
+            if (activePlayers[socket.id].isIt && tagCooldown === 0) {
+                for (let id in activePlayers) {
+                    if (id !== socket.id) {
+                        let target = activePlayers[id];
+                        let dist = Math.sqrt((activePlayers[socket.id].x - target.x)**2 + (activePlayers[socket.id].y - target.y)**2);
+                        if (dist < (FIXED_RADIUS * 2)) {
+                            activePlayers[socket.id].isIt = false;
+                            target.isIt = true;
+                            tagCooldown = 3000; 
+                            io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> ${activePlayers[socket.id].name} tagged ${target.name}! 3s FREEZE! <i class="fa-solid fa-snowflake"></i>`);
+                            io.emit('syncCooldown', tagCooldown);
+                            break;
+                        }
+                    }
+                }
             }
-
-            let isThisPlayerFrozen = (p.isIt && tagCooldown > 0);
-
-            let renderX = p.x;
-            let renderY = p.y;
-            if (isThisPlayerFrozen) {
-                renderX += Math.sin(Date.now() * 0.08) * 0.4; 
-                renderY += Math.cos(Date.now() * 0.08) * 0.4;
-            }
-
-            // Draw Player Circle
-            ctx.beginPath();
-            ctx.arc(renderX, renderY, dynamicRadius, 0, Math.PI * 2);
-            ctx.fillStyle = p.isIt ? '#dc3545' : p.color;
-            ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#fff';
-            ctx.stroke();
-            ctx.closePath();
-
-            // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
-            if (p.isIt) {
-                ctx.fillStyle = '#ffc107';
-
-                let iconChar = isThisPlayerFrozen ? '\uF2DC' : '\uF521';
-                let labelText = isThisPlayerFrozen ? ' FROZEN' : ' IT';
-                let badgeY = renderY - dynamicRadius - 16;
-
-                ctx.font = FA_CANVAS_FONT;
-                let iconWidth = ctx.measureText(iconChar).width;
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                let labelWidth = ctx.measureText(labelText).width;
-                let badgeStartX = renderX - ((iconWidth + labelWidth) / 2);
-
-                ctx.textAlign = 'left';
-
-                ctx.font = FA_CANVAS_FONT;
-                ctx.fillText(iconChar, badgeStartX, badgeY);
-
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(labelText, badgeStartX + iconWidth, badgeY);
-            }
-
-            // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
-            let cleanName = p.name.replace(/<[^>]*>?/gm, '').trim(); 
-            ctx.fillStyle = '#fff';
-
-            if (p.isBot) {
-                ctx.font = FA_CANVAS_FONT;
-                let iconWidth = ctx.measureText('\uF544 ').width;
-
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                let textWidth = ctx.measureText(cleanName).width;
-
-                let totalWidth = iconWidth + textWidth;
-                let startX = renderX - (totalWidth / 2);
-
-                ctx.textAlign = 'left';
-                ctx.font = FA_CANVAS_FONT;
-                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
-
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
-            } else {
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
-            }
+            io.emit('syncPlayers', activePlayers);
         }
-    } else if (!isPlaying) {
-        ctx.fillStyle = '#222';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    });
+
+    socket.on('disconnect', () => {
+        if (activePlayers[socket.id]) {
+            io.emit('systemMessage', `<i class="fa-solid fa-xmark"></i> ${activePlayers[socket.id].name} left.`);
+            let wasIt = activePlayers[socket.id].isIt;
+            delete activePlayers[socket.id];
+            if (wasIt) ensureSomeoneIsIt();
+        }
+        handleBotSpawningAndRemoval();
+        io.emit('syncPlayers', activePlayers);
+    });
+});
+
+setInterval(() => {
+    if (tagCooldown > 0) {
+        tagCooldown -= 16.67;
+        if (tagCooldown < 0) {
+            tagCooldown = 0;
+            io.emit('syncCooldown', 0);
+        }
     }
 
-    requestAnimationFrame(gameLoop);
-}
+    if (activePlayers[BOT_ID]) {
+        let bot = activePlayers[BOT_ID];
+        let targetPlayer = null;
+        let minDist = 999999;
+        
+        for (let id in activePlayers) {
+            if (id !== BOT_ID) {
+                let dist = Math.sqrt((activePlayers[id].x - bot.x)**2 + (activePlayers[id].y - bot.y)**2);
+                if (dist < minDist) { minDist = dist; targetPlayer = activePlayers[id]; }
+            }
+        }
 
-// Start game animation loop after document fonts register
-if (document.fonts) {
-    document.fonts.ready.then(() => {
-        requestAnimationFrame(gameLoop);
-    });
-} else {
-    requestAnimationFrame(gameLoop);
-}
+        let currentSpeed = (bot.isIt && tagCooldown > 0) ? 0 : 3.8; 
+        
+        let hasLOS = targetPlayer ? checkLineOfSight(bot.x, bot.y, targetPlayer.x, targetPlayer.y) : false;
+        let isLunging = (bot.isIt && tagCooldown === 0 && targetPlayer && minDist < 160 && hasLOS);
+
+        if (currentSpeed > 0) {
+            if (isLunging && targetPlayer) {
+                let angleToTarget = Math.atan2(targetPlayer.y - bot.y, targetPlayer.x - bot.x);
+                let nextX = bot.x + Math.cos(angleToTarget) * currentSpeed;
+                let nextY = bot.y + Math.sin(angleToTarget) * currentSpeed;
+
+                if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+                    bot.x = nextX; bot.y = nextY;
+                } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
+                    bot.x = nextX;
+                } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
+                    bot.y = nextY;
+                }
+            } else {
+                let botGridX = Math.floor(bot.x / tileSize);
+                let botGridY = Math.floor(bot.y / tileSize);
+                
+                let destGridX = 1;
+                let destGridY = 1;
+
+                if (targetPlayer && !bot.isIt) {
+                    destGridX = targetPlayer.x > 300 ? 1 : 13;
+                    destGridY = targetPlayer.y > 300 ? 1 : 13;
+                } else if (targetPlayer) {
+                    destGridX = Math.floor(targetPlayer.x / tileSize);
+                    destGridY = Math.floor(targetPlayer.y / tileSize);
+                }
+
+                let path = findShortestPath(botGridX, botGridY, destGridX, destGridY);
+
+                if (path.length > 0) {
+                    let nextNode = path[0];
+                    let trackTargetX = nextNode.x * tileSize + tileSize / 2;
+                    let trackTargetY = nextNode.y * tileSize + tileSize / 2;
+
+                    if (Math.abs(trackTargetX - bot.x) > 300) {
+                        if (bot.x < trackTargetX) bot.x -= currentSpeed;
+                        else bot.x += currentSpeed;
+                    } else {
+                        let angle = Math.atan2(trackTargetY - bot.y, trackTargetX - bot.x);
+                        bot.x += Math.cos(angle) * currentSpeed;
+                        bot.y += Math.sin(angle) * currentSpeed;
+                    }
+                } else {
+                    bot.x += bot.dirX * currentSpeed;
+                    bot.y += bot.dirY * currentSpeed;
+                }
+            }
+        }
+
+        if (bot.x > MAP_SIZE) bot.x -= MAP_SIZE;
+        if (bot.x < 0) bot.x += MAP_SIZE;
+
+        if (bot.isIt && tagCooldown === 0) {
+            for (let id in activePlayers) {
+                if (id !== BOT_ID) {
+                    let p = activePlayers[id];
+                    let dist = Math.sqrt((bot.x - p.x)**2 + (bot.y - p.y)**2);
+                    if (dist < (FIXED_RADIUS * 2)) {
+                        bot.isIt = false; p.isIt = true; 
+                        tagCooldown = 3000; 
+                        io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> Bot tagged ${p.name}! 3s FREEZE!`);
+                        io.emit('syncCooldown', tagCooldown);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    ensureSomeoneIsIt();
+    io.emit('syncPlayers', activePlayers);
+}, 16.67);
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Engine loaded on port ${PORT}`));
