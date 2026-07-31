@@ -39,8 +39,6 @@ const mazeGrid = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
-];
-
 let wallSegments = [];
 let tileSize = 40; 
 let wallThickness = 16; 
@@ -210,11 +208,6 @@ socket.on('connect', () => {
     const statusBox = document.getElementById('status-box');
     if (statusBox) statusBox.innerText = "Connected! Click Join.";
 
-    // If this is a RECONNECT while already playing, Socket.IO has handed us
-    // a brand new id. Remap our local player object to the new id and
-    // re-register with the server — otherwise players[myId] never matches
-    // anything again and the whole game loop (movement, bot updates, icons)
-    // silently stops running every frame.
     if (isPlaying) {
         if (previousId && players[previousId]) {
             players[myId] = players[previousId];
@@ -260,10 +253,6 @@ socket.on('syncPlayers', (serverPlayers) => {
             players[id].isIt = serverPlayers[id].isIt;
             players[id].isBot = isBotPlayer;
 
-            // Portal wrap detection: if the new position is a huge jump from
-            // where this player currently is, it's a teleport (portal), not
-            // normal movement — snap instantly instead of smoothly lerping
-            // across the whole map.
             if (Math.abs(targetX - players[id].x) > canvas.width * 0.5) {
                 players[id].x = targetX;
             }
@@ -449,7 +438,6 @@ function gameLoop() {
                 let labelText = isThisPlayerFrozen ? ' FROZEN' : ' IT';
                 let badgeY = renderY - dynamicRadius - 16;
 
-                // Measure icon + text so the combined badge stays centered
                 ctx.font = FA_CANVAS_FONT;
                 let iconWidth = ctx.measureText(iconChar).width;
                 ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
@@ -458,11 +446,9 @@ function gameLoop() {
 
                 ctx.textAlign = 'left';
 
-                // Draw icon in Font Awesome
                 ctx.font = FA_CANVAS_FONT;
                 ctx.fillText(iconChar, badgeStartX, badgeY);
 
-                // Draw label text in the game's normal font
                 ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
                 ctx.fillText(labelText, badgeStartX + iconWidth, badgeY);
             }
@@ -472,27 +458,22 @@ function gameLoop() {
             ctx.fillStyle = '#fff';
 
             if (p.isBot) {
-                // Measure icon width (\uF544 = Robot)
                 ctx.font = FA_CANVAS_FONT;
                 let iconWidth = ctx.measureText('\uF544 ').width;
 
-                // Measure text width
                 ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
                 let textWidth = ctx.measureText(cleanName).width;
 
                 let totalWidth = iconWidth + textWidth;
                 let startX = renderX - (totalWidth / 2);
 
-                // Draw Robot Icon (\uF544)
                 ctx.textAlign = 'left';
                 ctx.font = FA_CANVAS_FONT;
                 ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
 
-                // Draw Bot Name
                 ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
                 ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
             } else {
-                // Regular Human Player Name
                 ctx.textAlign = 'center';
                 ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
                 ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
