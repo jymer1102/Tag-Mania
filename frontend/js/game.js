@@ -430,6 +430,16 @@ function gameLoop() {
             ctx.stroke();
             ctx.closePath();
 
+            // --- BOT ICON (centered inside the circle) ---
+            if (p.isBot) {
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = `900 ${dynamicRadius * 1.15}px "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome", sans-serif`;
+                ctx.fillText('\uF544', renderX, renderY + 1);
+                ctx.textBaseline = 'alphabetic'; // reset for subsequent text draws
+            }
+
             // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
             if (p.isIt) {
                 ctx.fillStyle = '#ffc107';
@@ -456,28 +466,9 @@ function gameLoop() {
             // --- UNIFORM PLAYER / BOT NAME DISPLAY ---
             let cleanName = p.name.replace(/<[^>]*>?/gm, '').trim(); 
             ctx.fillStyle = '#fff';
-
-            if (p.isBot) {
-                ctx.font = FA_CANVAS_FONT;
-                let iconWidth = ctx.measureText('\uF544 ').width;
-
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                let textWidth = ctx.measureText(cleanName).width;
-
-                let totalWidth = iconWidth + textWidth;
-                let startX = renderX - (totalWidth / 2);
-
-                ctx.textAlign = 'left';
-                ctx.font = FA_CANVAS_FONT;
-                ctx.fillText('\uF544 ', startX, renderY - dynamicRadius - 4);
-
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, startX + iconWidth, renderY - dynamicRadius - 4);
-            } else {
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
-                ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
-            }
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 11px "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(cleanName, renderX, renderY - dynamicRadius - 4);
         }
     } else if (!isPlaying) {
         ctx.fillStyle = '#222';
