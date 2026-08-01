@@ -228,7 +228,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (activePlayers[socket.id]) {
-            io.emit('systemMessage', `<i class="fa-solid fa-xmark"></i> ${activePlayers[socket.id].name} left.`);
+            io.emit('systemMessage', `<i class="fa-solid fa-right-from-bracket"></i> ${activePlayers[socket.id].name} left.`);
             let wasIt = activePlayers[socket.id].isIt;
             delete activePlayers[socket.id];
             if (wasIt) ensureSomeoneIsIt();
@@ -328,7 +328,7 @@ setInterval(() => {
                     if (dist < (FIXED_RADIUS * 2)) {
                         bot.isIt = false; p.isIt = true; 
                         tagCooldown = 3000; 
-                        io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> Bot tagged ${p.name}! 3s FREEZE!`);
+                        io.emit('systemMessage', `<i class="fa-solid fa-burst"></i> Bot tagged ${p.name}! 3s FREEZE! <i class="fa-solid fa-snowflake"></i>`);
                         io.emit('syncCooldown', tagCooldown);
                         break;
                     }
