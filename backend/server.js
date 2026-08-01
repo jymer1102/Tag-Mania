@@ -177,6 +177,22 @@ function checkBotWallCollision(px, py, radius) {
     return false;
 }
 
+// Attempts to move the bot toward (nextX, nextY), sliding along walls if the
+// direct path is blocked. Returns true if the bot actually moved.
+function tryMoveBot(bot, nextX, nextY) {
+    if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
+        bot.x = nextX; bot.y = nextY;
+        return true;
+    } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
+        bot.x = nextX;
+        return true;
+    } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
+        bot.y = nextY;
+        return true;
+    }
+    return false;
+}
+
 io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
         activePlayers[socket.id] = { id: socket.id, name: data.name || "Player", color: data.color || "#007bff", x: 60, y: 60, radius: FIXED_RADIUS, isIt: false };
@@ -254,13 +270,7 @@ setInterval(() => {
                 let nextX = bot.x + Math.cos(angleToTarget) * currentSpeed;
                 let nextY = bot.y + Math.sin(angleToTarget) * currentSpeed;
 
-                if (!checkBotWallCollision(nextX, nextY, bot.radius)) {
-                    bot.x = nextX; bot.y = nextY;
-                } else if (!checkBotWallCollision(nextX, bot.y, bot.radius)) {
-                    bot.x = nextX;
-                } else if (!checkBotWallCollision(bot.x, nextY, bot.radius)) {
-                    bot.y = nextY;
-                }
+                tryMoveBot(bot, nextX, nextY);
             } else {
                 let botGridX = Math.floor(bot.x / tileSize);
                 let botGridY = Math.floor(bot.y / tileSize);
@@ -284,16 +294,25 @@ setInterval(() => {
                     let trackTargetY = nextNode.y * tileSize + tileSize / 2;
 
                     if (Math.abs(trackTargetX - bot.x) > 300) {
-                        if (bot.x < trackTargetX) bot.x -= currentSpeed;
-                        else bot.x += currentSpeed;
+                        // Wrap-around corridor (row 7 tunnel): move in x only,
+                        // still collision-checked so it can't cut through a wall.
+                        let nextX = bot.x < trackTargetX ? bot.x - currentSpeed : bot.x + currentSpeed;
+                        tryMoveBot(bot, nextX, bot.y);
                     } else {
                         let angle = Math.atan2(trackTargetY - bot.y, trackTargetX - bot.x);
-                        bot.x += Math.cos(angle) * currentSpeed;
-                        bot.y += Math.sin(angle) * currentSpeed;
+                        let nextX = bot.x + Math.cos(angle) * currentSpeed;
+                        let nextY = bot.y + Math.sin(angle) * currentSpeed;
+                        tryMoveBot(bot, nextX, nextY);
                     }
                 } else {
-                    bot.x += bot.dirX * currentSpeed;
-                    bot.y += bot.dirY * currentSpeed;
+                    let nextX = bot.x + bot.dirX * currentSpeed;
+                    let nextY = bot.y + bot.dirY * currentSpeed;
+                    if (!tryMoveBot(bot, nextX, nextY)) {
+                        // Hit a wall with no path available - reverse direction
+                        // instead of sitting stuck against it.
+                        bot.dirX *= -1;
+                        bot.dirY *= -1;
+                    }
                 }
             }
         }
