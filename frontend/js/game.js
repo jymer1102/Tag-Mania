@@ -434,10 +434,17 @@ function gameLoop() {
             if (p.isBot) {
                 ctx.fillStyle = '#fff';
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                ctx.textBaseline = 'alphabetic';
                 ctx.font = `900 ${dynamicRadius * 1.15}px "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome", sans-serif`;
-                ctx.fillText('\uF544', renderX, renderY + 1);
-                ctx.textBaseline = 'alphabetic'; // reset for subsequent text draws
+
+                // Font metrics (ascent/descent) don't match the icon glyph's actual
+                // visible pixels, so "middle" baseline renders off-center. Measure
+                // the glyph's real bounding box and center on that instead.
+                let iconMetrics = ctx.measureText('\uF544');
+                let iconHeight = iconMetrics.actualBoundingBoxAscent + iconMetrics.actualBoundingBoxDescent;
+                let iconBaselineY = renderY + (iconHeight / 2) - iconMetrics.actualBoundingBoxDescent;
+
+                ctx.fillText('\uF544', renderX, iconBaselineY);
             }
 
             // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
