@@ -112,5 +112,33 @@
             }
         }, 300); // Faster refresh window to completely stomp over the background file loops
     </script>
+    <script>
+        // Interactive glow: tracks cursor position over the sign-in card
+        // and feeds it into the --mx/--my custom properties the CSS glow
+        // reads from. Scoped to #login-screen only — doesn't touch
+        // anything in-game.
+        (function () {
+            const card = document.getElementById('login-screen');
+            if (!card) return;
+
+            function updateGlow(clientX, clientY) {
+                const rect = card.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                card.style.setProperty('--mx', `${x}px`);
+                card.style.setProperty('--my', `${y}px`);
+            }
+
+            card.addEventListener('mousemove', (e) => {
+                updateGlow(e.clientX, e.clientY);
+            });
+
+            card.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                if (!touch) return;
+                updateGlow(touch.clientX, touch.clientY);
+            }, { passive: true });
+        })();
+    </script>
 </body>
 </html>
