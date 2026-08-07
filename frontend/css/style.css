@@ -3,14 +3,12 @@
   Sign-in screen restyled to match the jymer1102 portfolio's design
   language (glow, borders, gradients, cursors). In-game elements
   (#game-container, canvas, #notification-box, #status-box, joystick)
-  are left exactly as they were.
+  are copied from the original inline styles unchanged.
   ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    /* Design tokens borrowed from the portfolio site, scoped to what the
-       sign-in screen needs. */
     --border: rgba(255, 255, 255, 0.07);
     --border-hover: rgba(30, 86, 224, 0.85);
     --accent-bright: #4FA9FF;
@@ -30,28 +28,30 @@
     padding: 0;
     user-select: none;
     -webkit-user-select: none;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
-body, html {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: #0d0e12;
+
+body {
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #0d0d11;
     background-image:
         radial-gradient(circle at 15% 0%, rgba(30, 86, 224, 0.08), transparent 40%),
         radial-gradient(circle at 85% 20%, rgba(30, 86, 224, 0.05), transparent 35%);
+    color: #fff;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
 }
 
-/* Custom cursors, site-wide (pointer icon only — doesn't touch any
-   in-game visuals, so it's safe to apply during gameplay too). */
+/* Custom cursors — CSS file lives at frontend/css/style.css, images live
+   at (root)/images/cursor/, so we go up two levels. */
 html, body {
-    cursor: url('Tag-Mania/images/cursor/custom-j-cursor.png') 0 0, default;
+    cursor: url('../../images/cursor/custom-j-cursor.png') 0 0, default;
 }
 #start-btn, #color-picker, #username-input, label {
-    cursor: url('Tag-Mania/images/cursor/custom-j-cursor-pointer.png') 0 0, pointer;
+    cursor: url('../../images/cursor/custom-j-cursor-pointer.png') 0 0, pointer;
 }
 
 /* --------------------------------------------------------------------------
@@ -62,21 +62,20 @@ html, body {
     position: relative;
     overflow: hidden;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     background: linear-gradient(160deg, var(--bg-card-from), var(--bg-card-to));
     padding: 40px 30px;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
     width: 90%;
-    max-width: 380px;
+    max-width: 350px;
     text-align: center;
-    z-index: 10;
     transition: border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
 }
 
-/* Soft radial glow, centered on the card, that lights up on hover/focus —
-   same idea as the portfolio's mouse-tracking glow, without needing JS
-   to track cursor position. */
 #login-screen::before {
     content: '';
     position: absolute;
@@ -104,173 +103,193 @@ html, body {
     z-index: 2;
 }
 
-.logo-container {
-    margin-bottom: 30px;
-}
-.game-title {
+#login-screen h1 {
     font-family: var(--font-display);
-    font-size: 2.2rem;
+    font-size: 2.6rem;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     background: linear-gradient(120deg, #ffffff 0%, #ffffff 45%, var(--accent-bright) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
-.game-subtitle {
+
+.server-status-wrapper {
     font-family: var(--font-mono);
-    color: var(--text-3);
-    font-size: 0.85rem;
-    margin-top: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 13px;
+    color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+    padding: 4px 12px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255, 193, 7, 0.2);
+    display: inline-block;
+    transition: all 0.3s var(--ease);
 }
 
-/* Unified Form Layout Blocks */
-.form-group {
-    text-align: left;
-    margin-bottom: 20px;
-}
-.form-group label {
-    display: block;
+#login-screen label {
     font-family: var(--font-mono);
+    font-size: 12px;
     color: var(--text-3);
-    font-size: 0.78rem;
     font-weight: 500;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
-}
-#username-input {
+    text-align: left;
     width: 100%;
+    display: block;
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+#login-screen input[type="text"] {
+    margin-bottom: 20px;
     padding: 14px;
-    background: #1f232e;
+    font-size: 16px;
+    width: 100%;
+    border-radius: 10px;
     border: 1px solid var(--border);
-    color: #ffffff;
-    border-radius: 8px;
-    font-size: 1rem;
+    background: #181822;
+    color: #fff;
     outline: none;
     transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
-#username-input:focus {
+#login-screen input[type="text"]:focus {
     border-color: var(--border-hover);
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
-/* Fancy Cosmetics Picker Styling */
-.color-picker-wrapper {
-    display: flex;
-    align-items: center;
-    background: #1f232e;
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    border-radius: 8px;
-    transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
-}
-.color-picker-wrapper:focus-within {
-    border-color: var(--border-hover);
-    box-shadow: 0 0 0 3px var(--accent-glow);
-}
-#color-picker {
+
+#login-screen input[type="color"] {
     -webkit-appearance: none;
     border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 100%;
+    height: 48px;
+    border-radius: 10px;
     cursor: pointer;
     background: none;
+    margin-bottom: 28px;
 }
-#color-picker::-webkit-color-swatch-wrapper { padding: 0; }
-#color-picker::-webkit-color-swatch { border: none; border-radius: 6px; }
-.color-label {
-    color: var(--text-3);
-    font-size: 0.9rem;
-    margin-left: 12px;
+#login-screen input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
 }
-/* Action Button — keeps its green CTA color, gains the portfolio's
-   border-glow hover treatment */
-#start-btn {
+#login-screen input[type="color"]::-webkit-color-swatch {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+#login-screen button {
     width: 100%;
-    padding: 16px;
-    background: #10b981;
-    border: 1px solid transparent;
-    color: #ffffff;
-    font-size: 1.1rem;
-    font-weight: 700;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
     letter-spacing: 1px;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: #fff;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-    transition: background 0.2s var(--ease), transform 0.1s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
-    margin-top: 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+    transition: background 0.2s var(--ease), transform 0.2s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
 }
-#start-btn:hover {
+#login-screen button:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: translateY(-1px);
     border-color: var(--border-hover);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2), 0 0 20px var(--accent-glow);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6), 0 0 20px var(--accent-glow);
 }
-#start-btn:active {
-    transform: scale(0.98);
-    background: #059669;
+#login-screen button:disabled {
+    background: #2a2a35;
+    color: #5a5a6a;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    border-color: transparent;
 }
-#start-btn:focus-visible {
+#login-screen button:focus-visible {
     outline: 2px solid var(--accent-bright);
     outline-offset: 4px;
 }
 
 /* ==========================================================================
-  Everything below this line is unchanged in-game styling.
+  Everything below this line is unchanged in-game styling, copied as-is
+  from the original inline <style> block.
   ========================================================================== */
 
-/* Network Monitor Footer / In-Game Status HUD (shared element — left as-is) */
-#status-box {
-    color: #f59e0b;
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-top: 20px;
-    letter-spacing: 0.5px;
-}
-/* Gameplay HUD Layers */
 #game-container {
+    display: none !important;
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
-canvas { display: block; width: 100%; height: 100%; }
+canvas {
+    border: 4px solid #1e1e24;
+    border-radius: 12px;
+    display: block;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+    margin: 0 auto;
+}
+
 #notification-box {
     position: absolute;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(13, 14, 18, 0.85);
-    color: #ffffff;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 123, 255, 0.95);
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
     opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 5;
-    pointer-events: none;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: opacity 0.4s ease;
+    z-index: 100;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
 }
-/* Mobile Joystick Components */
-#joystick-zone {
+
+#status-box {
     position: absolute;
-    bottom: 40px;
-    left: 40px;
+    top: 65px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13, 13, 17, 0.9);
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    border: 1px solid #323242;
+    z-index: 10;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+#joystick-zone {
     width: 100px;
     height: 100px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    touch-action: none;
     z-index: 5;
+    position: absolute;
+    bottom: 30px;
+    left: calc(50% - 50px);
 }
 #joystick-stick {
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.4);
+    width: 42px;
+    height: 42px;
+    background: #007bff;
     border-radius: 50%;
+    position: absolute;
+    top: 29px;
+    left: 29px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.5);
 }
