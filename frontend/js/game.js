@@ -444,10 +444,7 @@ function gameLoop() {
                 let iconHeight = iconMetrics.actualBoundingBoxAscent + iconMetrics.actualBoundingBoxDescent;
                 let iconBaselineY = renderY + (iconHeight / 2) - iconMetrics.actualBoundingBoxDescent;
 
-                let iconOffsetX = dynamicRadius * 0.16;
-                let iconOffsetY = dynamicRadius * 0.18;
-
-                ctx.fillText('\uF544', renderX + iconOffsetX, iconBaselineY - iconOffsetY);
+                ctx.fillText('\uF544', renderX, iconBaselineY);
             }
 
             // --- STATUS BADGE (Crown \uF521 / Freeze \uF2DC) ---
