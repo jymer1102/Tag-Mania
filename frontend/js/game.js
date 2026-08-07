@@ -444,7 +444,7 @@ function gameLoop() {
                 let iconHeight = iconMetrics.actualBoundingBoxAscent + iconMetrics.actualBoundingBoxDescent;
                 let iconBaselineY = renderY + (iconHeight / 2) - iconMetrics.actualBoundingBoxDescent;
 
-                let iconOffsetX = dynamicRadius * -0.06;
+                let iconOffsetX = dynamicRadius * -0.02;
                 let iconOffsetY = dynamicRadius * 0.06;
 
                 ctx.fillText('\uF544', renderX + iconOffsetX, iconBaselineY - iconOffsetY);
