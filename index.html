@@ -37,7 +37,7 @@
         <div class="glow-input-wrapper" id="username-wrapper">
             <input type="text" id="username-input" class="glow-input-hidden" maxlength="30" autocomplete="off">
             <div class="glow-input-display" id="username-display" aria-hidden="true">
-                <span id="username-text" class="placeholder-text">Enter player name...</span><span class="custom-caret"></span>
+                <span id="username-text" class="placeholder-text">Enter player name...</span><span class="custom-caret" id="username-caret"></span>
             </div>
         </div>
         
@@ -153,8 +153,10 @@
         (function () {
             const input = document.getElementById('username-input');
             const wrapper = document.getElementById('username-wrapper');
+            const display = document.getElementById('username-display');
             const textSpan = document.getElementById('username-text');
-            if (!input || !wrapper || !textSpan) return;
+            const caretSpan = document.getElementById('username-caret');
+            if (!input || !wrapper || !display || !textSpan || !caretSpan) return;
 
             const placeholder = 'Enter player name...';
 
@@ -162,9 +164,15 @@
                 if (input.value.length > 0) {
                     textSpan.textContent = input.value;
                     textSpan.classList.remove('placeholder-text');
+                    // Caret goes after the typed text, like a normal cursor
+                    // trailing what's been typed.
+                    display.appendChild(caretSpan);
                 } else {
                     textSpan.textContent = placeholder;
                     textSpan.classList.add('placeholder-text');
+                    // Caret goes at the very start, before the placeholder,
+                    // matching how an empty native input looks.
+                    display.insertBefore(caretSpan, textSpan);
                 }
             }
 
