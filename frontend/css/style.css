@@ -80,7 +80,7 @@ html, body {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(500px circle at 50% 20%, var(--accent-glow), transparent 65%);
+    background: radial-gradient(500px circle at var(--mx, 50%) var(--my, 20%), var(--accent-glow), transparent 65%);
     opacity: 0;
     transition: opacity 0.35s var(--ease);
     pointer-events: none;
