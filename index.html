@@ -34,7 +34,12 @@
         <div class="server-status-wrapper" id="menu-status-label"><i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...</div>
         
         <label for="username-input">CHOOSE PLAYER USERNAME</label>
-        <input type="text" id="username-input" placeholder="Enter player name..." maxlength="30" autocomplete="off">
+        <div class="glow-input-wrapper" id="username-wrapper">
+            <input type="text" id="username-input" class="glow-input-hidden" maxlength="30" autocomplete="off">
+            <div class="glow-input-display" id="username-display" aria-hidden="true">
+                <span id="username-text" class="placeholder-text">Enter player name...</span><span class="custom-caret"></span>
+            </div>
+        </div>
         
         <label for="color-picker">CUSTOM IN-GAME AVATAR COLOR</label>
         <input type="color" id="color-picker" value="#007bff">
@@ -138,6 +143,35 @@
                 if (!touch) return;
                 updateGlow(touch.clientX, touch.clientY);
             }, { passive: true });
+        })();
+    </script>
+    <script>
+        // Custom glow caret: mirrors the hidden input's value into the
+        // visible display div, and toggles the fake caret's visibility
+        // on focus/blur. The real input still holds the actual value,
+        // so game.js's existing username-input.value read is untouched.
+        (function () {
+            const input = document.getElementById('username-input');
+            const wrapper = document.getElementById('username-wrapper');
+            const textSpan = document.getElementById('username-text');
+            if (!input || !wrapper || !textSpan) return;
+
+            const placeholder = 'Enter player name...';
+
+            function syncDisplay() {
+                if (input.value.length > 0) {
+                    textSpan.textContent = input.value;
+                    textSpan.classList.remove('placeholder-text');
+                } else {
+                    textSpan.textContent = placeholder;
+                    textSpan.classList.add('placeholder-text');
+                }
+            }
+
+            input.addEventListener('input', syncDisplay);
+            input.addEventListener('focus', () => wrapper.classList.add('is-focused'));
+            input.addEventListener('blur', () => wrapper.classList.remove('is-focused'));
+            syncDisplay();
         })();
     </script>
 </body>
