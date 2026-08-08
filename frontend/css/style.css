@@ -50,7 +50,10 @@ body {
 html, body {
     cursor: url('../../images/cursor/custom-j-cursor.png') 0 0, default;
 }
-#start-btn, #color-picker, #username-input, label {
+#start-btn, #color-picker, #username-input, label,
+button, input, select, a, [role="button"],
+.glow-input-wrapper, .glow-input-display,
+#joystick-zone, #joystick-stick {
     cursor: url('../../images/cursor/custom-j-cursor-pointer.png') 0 0, pointer;
 }
 
@@ -95,7 +98,7 @@ html, body {
 #login-screen:hover,
 #login-screen:focus-within {
     border-color: var(--border-hover);
-    box-shadow: 0 0 25px rgba(30, 86, 224, 0.35);
+    box-shadow: 0 0 20px var(--accent-glow);
 }
 
 #login-screen > * {
@@ -294,6 +297,9 @@ html, body {
     align-items: center;
     justify-content: center;
     padding: 0;
+    box-sizing: border-box;
+    border: 2px solid var(--border-hover);
+    box-shadow: 0 0 20px var(--accent-glow);
 }
 canvas {
     border: 4px solid var(--border);
@@ -306,7 +312,7 @@ canvas {
 
 canvas:hover {
     border-color: var(--border-hover);
-    box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 25px var(--accent-glow);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 20px var(--accent-glow);
 }
 
 #notification-box {
