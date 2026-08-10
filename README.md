@@ -1,7 +1,6 @@
 <div align="center">
 
 # Tag Mania
-
 ---
 
 ![README Banner](favicon.png)
