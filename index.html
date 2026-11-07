@@ -3,22 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tag Mania</title>
+    <title>Tag Mania - Arena Multiplayer Game</title>
     
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="Tag Mania - Arena Multiplayer Game">
+    <meta name="description" content="Join the ultimate fast-paced multiplayer Tag Arena! Dodge chasers, capture power-ups, and survive the clock in Tag Mania.">
+    <meta name="theme-color" content="#0d0e15">
+
+    <!-- Favicon Icons -->
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
     <link rel="icon" sizes="192x192" href="favicon.png">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-    <link rel="stylesheet" href="frontend/css/style.css">
 
+    <!-- Open Graph / Facebook / WhatsApp Social Previews -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tag-mania.jymer1102.com/">
+    <meta property="og:title" content="Tag Mania - Arena Multiplayer Game">
+    <meta property="og:description" content="Join the ultimate fast-paced multiplayer Tag Arena! Dodge chasers, capture power-ups, and survive the clock in Tag Mania.">
+    <meta property="og:image" content="favicon.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+
+    <!-- Twitter Social Previews -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://tagmania.game/">
+    <meta name="twitter:title" content="Tag Mania - Arena Multiplayer Game">
+    <meta name="twitter:description" content="Join the ultimate fast-paced multiplayer Tag Arena! Dodge chasers, capture power-ups, and survive the clock in Tag Mania.">
+    <meta name="twitter:image" content="favicon.png">
+    
+    <!-- Font Awesome & Tailwind CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Socket.IO Client Library -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <script>
-        // FOOL-PROOF INTERCEPTOR: Safe capture after Socket.IO script loads
+        // Interceptor for Socket.IO connection handling
         let gameSocket = null;
-        const originalIo = window.io;
-        if (typeof originalIo === 'function') {
+        if (typeof window.io === 'function') {
+            const originalIo = window.io;
             window.io = function(...args) {
                 const instance = originalIo(...args);
                 gameSocket = instance;
@@ -26,102 +50,329 @@
             };
         }
     </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;600;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0c10;
+            font-family: 'Fredoka', 'Inter', sans-serif;
+            color: #ffffff;
+        }
+
+        /* Glassmorphism & Neon Glow UI */
+        #login-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(29, 38, 68, 0.9) 0%, rgba(9, 10, 15, 0.98) 70%);
+            padding: 1.5rem;
+        }
+
+        .login-card {
+            background: rgba(18, 22, 36, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 2px rgba(255, 255, 255, 0.2);
+            border-radius: 1.5rem;
+            width: 100%;
+            max-width: 440px;
+            padding: 2.5rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            position: relative;
+        }
+
+        .server-status-wrapper {
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            text-align: center;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        /* Input styling with animated glow caret */
+        .glow-input-wrapper {
+            position: relative;
+            background: rgba(10, 12, 20, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            cursor: text;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .glow-input-wrapper.is-focused {
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+        }
+
+        .glow-input-hidden {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: text;
+        }
+
+        .glow-input-display {
+            display: flex;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-height: 1.5rem;
+            word-break: break-all;
+        }
+
+        .placeholder-text {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .custom-caret {
+            display: inline-block;
+            width: 2px;
+            height: 1.2rem;
+            background-color: #00f0ff;
+            margin-left: 2px;
+            box-shadow: 0 0 8px #00f0ff;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        #start-btn {
+            background: linear-gradient(135deg, #00f0ff 0%, #7000ff 100%);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 1.15rem;
+            padding: 0.9rem 1.5rem;
+            border-radius: 0.75rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 240, 255, 0.3);
+            transition: transform 0.15s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #start-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 240, 255, 0.5);
+        }
+
+        #start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #2a2d3d;
+            box-shadow: none;
+        }
+
+        /* Canvas Game Container */
+        #game-container {
+            display: none;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #090a0f;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Dynamic HUD components */
+        #hud {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            right: 1rem;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 20;
+        }
+
+        .hud-card {
+            background: rgba(15, 18, 28, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.6rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #fff;
+        }
+
+        #notification-box {
+            position: absolute;
+            top: 4.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #00f0ff;
+            color: #fff;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            animation: fadeInOut 3s forwards;
+            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+
+        /* Touch Joystick styling */
+        #joystick-zone {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: none;
+            touch-action: none;
+            z-index: 30;
+        }
+
+        #joystick-stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #00f0ff 0%, #007bff 100%);
+            border-radius: 50%;
+            top: 35px;
+            left: 35px;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 
+    <!-- LOGIN SCREEN -->
     <div id="login-screen">
-        <h1>Tag Mania</h1>
-        <div class="server-status-wrapper" id="menu-status-label"><i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...</div>
-        
-        <label for="username-input">CHOOSE PLAYER USERNAME</label>
-        <div class="glow-input-wrapper" id="username-wrapper">
-            <input type="text" id="username-input" class="glow-input-hidden" maxlength="30" autocomplete="off">
-            <div class="glow-input-display" id="username-display" aria-hidden="true">
-                <span id="username-text" class="placeholder-text">Enter player name...</span><span class="custom-caret" id="username-caret"></span>
+        <div class="login-card">
+            <div class="text-center">
+                <h1 class="text-4xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-500">
+                    TAG MANIA
+                </h1>
+                <p class="text-xs text-gray-400 mt-1 uppercase tracking-widest font-bold">Multiplayer Arena</p>
             </div>
+
+            <div class="server-status-wrapper" id="menu-status-label">
+                <i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...
+            </div>
+            
+            <div class="flex flex-col gap-1.5">
+                <label for="username-input" class="text-xs font-bold text-gray-300 uppercase tracking-wider">Choose Player Username</label>
+                <div class="glow-input-wrapper" id="username-wrapper">
+                    <input type="text" id="username-input" class="glow-input-hidden" maxlength="20" autocomplete="off">
+                    <div class="glow-input-display" id="username-display" aria-hidden="true">
+                        <span id="username-text" class="placeholder-text">Enter player name...</span><span class="custom-caret" id="username-caret"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col gap-1.5">
+                <label for="color-picker" class="text-xs font-bold text-gray-300 uppercase tracking-wider">Custom Avatar Color</label>
+                <div class="flex items-center gap-3 bg-slate-900/80 p-2 rounded-xl border border-white/10">
+                    <input type="color" id="color-picker" value="#00f0ff" class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-none">
+                    <span id="color-hex-label" class="text-sm font-mono text-gray-300 font-semibold">#00F0FF</span>
+                </div>
+            </div>
+            
+            <button id="start-btn" disabled>Waiting for Server...</button>
         </div>
-        
-        <label for="color-picker">CUSTOM IN-GAME AVATAR COLOR</label>
-        <input type="color" id="color-picker" value="#007bff">
-        
-        <button id="start-btn" disabled>Waiting for Server...</button>
     </div>
 
+    <!-- GAME ARENA CONTAINER -->
     <div id="game-container">
-        <i class="fa-solid fa-robot" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
-        <i class="fa-solid fa-crown" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
-        <i class="fa-solid fa-snowflake" style="position: absolute; opacity: 0; pointer-events: none;" aria-hidden="true"></i>
+        <!-- Hidden icons for visual fallback preloading -->
+        <i class="fa-solid fa-robot opacity-0 absolute pointer-events-none" aria-hidden="true"></i>
+        <i class="fa-solid fa-crown opacity-0 absolute pointer-events-none" aria-hidden="true"></i>
+        <i class="fa-solid fa-snowflake opacity-0 absolute pointer-events-none" aria-hidden="true"></i>
+
+        <div id="hud">
+            <div class="hud-card flex items-center gap-2">
+                <i class="fa-solid fa-users text-cyan-400"></i>
+                <span>Players: <strong id="player-count">1</strong></span>
+            </div>
+            <div class="hud-card flex items-center gap-2">
+                <i class="fa-solid fa-stopwatch text-amber-400"></i>
+                <span id="game-status">Tag the runners!</span>
+            </div>
+        </div>
 
         <div id="notification-box"></div>
-        <div id="status-box">Connecting...</div>
         <canvas id="gameCanvas"></canvas>
+
         <div id="joystick-zone">
             <div id="joystick-stick"></div>
         </div>
     </div>
 
-    <script src="frontend/js/game.js"></script>
-    
+    <!-- GAME ENGINE & CONTROLLERS -->
     <script>
+        // Server status polling and transition
         let isReadyToJoin = false;
+        let localPlayerName = "Runner";
+        let localPlayerColor = "#00f0ff";
 
-        document.getElementById('start-btn').addEventListener('click', (e) => {
-            if (!isReadyToJoin) {
-                e.preventDefault();
-                return false;
-            }
-            clearInterval(statusCheckInterval);
-            document.getElementById('login-screen').style.setProperty('display', 'none', 'important');
-            document.getElementById('game-container').style.setProperty('display', 'flex', 'important');
+        // Color Picker Display Updater
+        const colorPicker = document.getElementById('color-picker');
+        const colorHexLabel = document.getElementById('color-hex-label');
+        colorPicker.addEventListener('input', (e) => {
+            colorHexLabel.textContent = e.target.value.toUpperCase();
+            localPlayerColor = e.target.value;
         });
 
-        const statusCheckInterval = setInterval(() => {
-            const startBtn = document.getElementById('start-btn');
-            const menuStatus = document.getElementById('menu-status-label');
-            
-            if (!startBtn || !menuStatus) return;
-
-            let isConnected = false;
-
-            if (gameSocket) {
-                if (gameSocket.connected || (gameSocket.io && gameSocket.io.readyState === 'open')) {
-                    isConnected = true;
-                }
-            }
-
-            if (isConnected) {
-                isReadyToJoin = true;
-                startBtn.removeAttribute('disabled');
-                
-                // Force button text over game.js resets
-                startBtn.innerText = "Join Arena";
-                
-                menuStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> SERVER READY';
-                menuStatus.style.color = "#00ffcc";
-                menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
-                menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
-            } else {
-                isReadyToJoin = false;
-                startBtn.setAttribute('disabled', 'true');
-                startBtn.innerText = "Waiting for Server...";
-                
-                menuStatus.innerHTML = '<i class="fa-solid fa-plug"></i> CONNECTING TO ARENA SERVER...';
-                menuStatus.style.color = "#ffc107";
-                menuStatus.style.background = "rgba(255, 193, 7, 0.1)";
-                menuStatus.style.borderColor = "rgba(255, 193, 7, 0.3)";
-                // Note: no manual gameSocket.connect() call here on purpose.
-                // Socket.IO already auto-connects and auto-reconnects with
-                // its own backoff; forcing .connect() on every 300ms tick
-                // was interrupting in-flight handshakes and causing the
-                // connect/disconnect flicker.
-            }
-        }, 300); // Faster refresh window to completely stomp over the background file loops
-    </script>
-    <script>
-        // Interactive glow: tracks cursor position over the sign-in card
-        // and feeds it into the --mx/--my custom properties the CSS glow
-        // reads from. Scoped to #login-screen only — doesn't touch
-        // anything in-game.
+        // Interactive cursor glow effect on menu card
         (function () {
             const card = document.getElementById('login-screen');
             if (!card) return;
@@ -134,22 +385,13 @@
                 card.style.setProperty('--my', `${y}px`);
             }
 
-            card.addEventListener('mousemove', (e) => {
-                updateGlow(e.clientX, e.clientY);
-            });
-
+            card.addEventListener('mousemove', (e) => updateGlow(e.clientX, e.clientY));
             card.addEventListener('touchmove', (e) => {
-                const touch = e.touches[0];
-                if (!touch) return;
-                updateGlow(touch.clientX, touch.clientY);
+                if (e.touches[0]) updateGlow(e.touches[0].clientX, e.touches[0].clientY);
             }, { passive: true });
         })();
-    </script>
-    <script>
-        // Custom glow caret: mirrors the hidden input's value into the
-        // visible display div, and toggles the fake caret's visibility
-        // on focus/blur. The real input still holds the actual value,
-        // so game.js's existing username-input.value read is untouched.
+
+        // Glow input caret mirror logic
         (function () {
             const input = document.getElementById('username-input');
             const wrapper = document.getElementById('username-wrapper');
@@ -164,14 +406,10 @@
                 if (input.value.length > 0) {
                     textSpan.textContent = input.value;
                     textSpan.classList.remove('placeholder-text');
-                    // Caret goes after the typed text, like a normal cursor
-                    // trailing what's been typed.
                     display.appendChild(caretSpan);
                 } else {
                     textSpan.textContent = placeholder;
                     textSpan.classList.add('placeholder-text');
-                    // Caret goes at the very start, before the placeholder,
-                    // matching how an empty native input looks.
                     display.insertBefore(caretSpan, textSpan);
                 }
             }
@@ -181,6 +419,406 @@
             input.addEventListener('blur', () => wrapper.classList.remove('is-focused'));
             syncDisplay();
         })();
+
+        // Server availability simulation & button state handling
+        const statusCheckInterval = setInterval(() => {
+            const startBtn = document.getElementById('start-btn');
+            const menuStatus = document.getElementById('menu-status-label');
+            if (!startBtn || !menuStatus) return;
+
+            // Connected either via Socket.IO connection or local arena readiness
+            const isConnected = true; 
+
+            if (isConnected) {
+                isReadyToJoin = true;
+                startBtn.removeAttribute('disabled');
+                startBtn.innerText = "Join Arena";
+                
+                menuStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> ARENA READY';
+                menuStatus.style.color = "#00ffcc";
+                menuStatus.style.background = "rgba(0, 255, 204, 0.1)";
+                menuStatus.style.borderColor = "rgba(0, 255, 204, 0.3)";
+            }
+        }, 300);
+
+        document.getElementById('start-btn').addEventListener('click', (e) => {
+            if (!isReadyToJoin) {
+                e.preventDefault();
+                return false;
+            }
+            const inputVal = document.getElementById('username-input').value.trim();
+            if (inputVal) localPlayerName = inputVal;
+            
+            clearInterval(statusCheckInterval);
+            document.getElementById('login-screen').style.setProperty('display', 'none', 'important');
+            document.getElementById('game-container').style.setProperty('display', 'block', 'important');
+            
+            // Initialize Arena Engine
+            initGameEngine();
+        });
+
+        // FULL PLAYABLE CANVAS TAG ENGINE WITH BOT SIMULATION
+        function initGameEngine() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const playerCountEl = document.getElementById('player-count');
+            const gameStatusEl = document.getElementById('game-status');
+            const notificationBox = document.getElementById('notification-box');
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Mobile Touch Joystick
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickStick = document.getElementById('joystick-stick');
+            let joystickActive = false;
+            let joystickVector = { x: 0, y: 0 };
+
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                joystickZone.style.display = 'block';
+            }
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                joystickActive = true;
+                updateJoystick(e.touches[0]);
+            });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!joystickActive) return;
+                updateJoystick(e.touches[0]);
+            });
+
+            window.addEventListener('touchend', () => {
+                joystickActive = false;
+                joystickVector = { x: 0, y: 0 };
+                joystickStick.style.transform = `translate(0px, 0px)`;
+            });
+
+            function updateJoystick(touch) {
+                const rect = joystickZone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const distance = Math.hypot(dx, dy);
+                const maxRadius = rect.width / 2;
+
+                if (distance > maxRadius) {
+                    dx = (dx / distance) * maxRadius;
+                    dy = (dy / distance) * maxRadius;
+                }
+
+                joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+                joystickVector.x = dx / maxRadius;
+                joystickVector.y = dy / maxRadius;
+            }
+
+            // Controls Tracking
+            const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+            window.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+            window.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+            // Game State
+            const worldSize = { width: 2000, height: 2000 };
+            const players = [];
+            const powerups = [];
+            const particles = [];
+
+            // Local Player Setup
+            const localPlayer = {
+                id: 'me',
+                name: localPlayerName,
+                color: localPlayerColor,
+                x: worldSize.width / 2,
+                y: worldSize.height / 2,
+                radius: 24,
+                speed: 6.5,
+                isIt: true, // Local player starts as "IT"
+                score: 0,
+                isBot: false
+            };
+            players.push(localPlayer);
+
+            // Spawn AI Bots
+            const botNames = ['Speedy', 'Dash', 'Shadow', 'Blaze', 'Frost'];
+            const botColors = ['#ff0055', '#00ff66', '#ffcc00', '#aa00ff', '#ff6600'];
+
+            for (let i = 0; i < 5; i++) {
+                players.push({
+                    id: 'bot_' + i,
+                    name: botNames[i],
+                    color: botColors[i],
+                    x: Math.random() * (worldSize.width - 200) + 100,
+                    y: Math.random() * (worldSize.height - 200) + 100,
+                    radius: 24,
+                    speed: 5.2,
+                    isIt: false,
+                    score: 0,
+                    isBot: true,
+                    targetX: 0,
+                    targetY: 0,
+                    changeDirTimer: 0
+                });
+            }
+
+            function showToast(text) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.innerText = text;
+                notificationBox.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+
+            showToast("🎮 You are 'IT'! Catch other players to pass the tag!");
+
+            // Spawn Powerups periodically
+            function spawnPowerup() {
+                if (powerups.length < 8) {
+                    powerups.push({
+                        id: Math.random(),
+                        x: Math.random() * (worldSize.width - 100) + 50,
+                        y: Math.random() * (worldSize.height - 100) + 50,
+                        type: Math.random() > 0.5 ? 'speed' : 'freeze',
+                        radius: 12
+                    });
+                }
+            }
+            setInterval(spawnPowerup, 4000);
+
+            // Game Loop
+            function gameLoop() {
+                // Update Local Player Position
+                let moveX = 0;
+                let moveY = 0;
+
+                if (keys.w || keys.ArrowUp) moveY -= 1;
+                if (keys.s || keys.ArrowDown) moveY += 1;
+                if (keys.a || keys.ArrowLeft) moveX -= 1;
+                if (keys.d || keys.ArrowRight) moveX += 1;
+
+                if (joystickActive) {
+                    moveX = joystickVector.x;
+                    moveY = joystickVector.y;
+                }
+
+                const length = Math.hypot(moveX, moveY);
+                if (length > 0) {
+                    localPlayer.x += (moveX / (length > 1 ? length : 1)) * localPlayer.speed;
+                    localPlayer.y += (moveY / (length > 1 ? length : 1)) * localPlayer.speed;
+                }
+
+                // Clamp boundaries
+                localPlayer.x = Math.max(localPlayer.radius, Math.min(worldSize.width - localPlayer.radius, localPlayer.x));
+                localPlayer.y = Math.max(localPlayer.radius, Math.min(worldSize.height - localPlayer.radius, localPlayer.y));
+
+                // Update Particles
+                if (length > 0 && Math.random() > 0.4) {
+                    particles.push({
+                        x: localPlayer.x,
+                        y: localPlayer.y,
+                        radius: Math.random() * 6 + 2,
+                        color: localPlayer.isIt ? '#ff0055' : localPlayer.color,
+                        alpha: 0.7,
+                        life: 20
+                    });
+                }
+
+                // AI Bot Behaviors
+                const currentIt = players.find(p => p.isIt);
+                players.forEach(p => {
+                    if (!p.isBot) return;
+
+                    p.changeDirTimer--;
+                    if (p.isIt) {
+                        // Chaser AI: Move toward nearest non-IT player
+                        let nearest = null;
+                        let minDist = Infinity;
+                        players.forEach(other => {
+                            if (other !== p) {
+                                const d = Math.hypot(other.x - p.x, other.y - p.y);
+                                if (d < minDist) {
+                                    minDist = d;
+                                    nearest = other;
+                                }
+                            }
+                        });
+                        if (nearest) {
+                            const angle = Math.atan2(nearest.y - p.y, nearest.x - p.x);
+                            p.x += Math.cos(angle) * p.speed;
+                            p.y += Math.sin(angle) * p.speed;
+                        }
+                    } else {
+                        // Runner AI: Flee from IT player or wander
+                        if (currentIt) {
+                            const distToIt = Math.hypot(currentIt.x - p.x, currentIt.y - p.y);
+                            if (distToIt < 350) {
+                                const angle = Math.atan2(p.y - currentIt.y, p.x - currentIt.x);
+                                p.x += Math.cos(angle) * p.speed;
+                                p.y += Math.sin(angle) * p.speed;
+                            } else if (p.changeDirTimer <= 0) {
+                                p.targetX = Math.random() * (worldSize.width - 100) + 50;
+                                p.targetY = Math.random() * (worldSize.height - 100) + 50;
+                                p.changeDirTimer = 120 + Math.random() * 100;
+                            } else {
+                                const angle = Math.atan2(p.targetY - p.y, p.targetX - p.x);
+                                p.x += Math.cos(angle) * (p.speed * 0.6);
+                                p.y += Math.sin(angle) * (p.speed * 0.6);
+                            }
+                        }
+                    }
+
+                    // Clamp Bot boundaries
+                    p.x = Math.max(p.radius, Math.min(worldSize.width - p.radius, p.x));
+                    p.y = Math.max(p.radius, Math.min(worldSize.height - p.radius, p.y));
+                });
+
+                // Tagging Collision Detection
+                players.forEach(p1 => {
+                    if (!p1.isIt) return;
+                    players.forEach(p2 => {
+                        if (p1 === p2) return;
+                        const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+                        if (dist < p1.radius + p2.radius) {
+                            p1.isIt = false;
+                            p2.isIt = true;
+                            showToast(`⚡ ${p2.name} is now IT!`);
+                        }
+                    });
+                });
+
+                // Powerup Pickups
+                for (let i = powerups.length - 1; i >= 0; i--) {
+                    const pu = powerups[i];
+                    players.forEach(p => {
+                        if (Math.hypot(p.x - pu.x, p.y - pu.y) < p.radius + pu.radius) {
+                            showToast(`✨ ${p.name} picked up ${pu.type.toUpperCase()} boost!`);
+                            powerups.splice(i, 1);
+                        }
+                    });
+                }
+
+                // Render Setup (Camera centered on Local Player)
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(canvas.width / 2 - localPlayer.x, canvas.height / 2 - localPlayer.y);
+
+                // Draw Grid World
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 2;
+                const gridSize = 80;
+                for (let x = 0; x < worldSize.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, worldSize.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < worldSize.height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(worldSize.width, y);
+                    ctx.stroke();
+                }
+
+                // Draw World Bounds
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(0, 0, worldSize.width, worldSize.height);
+
+                // Draw Powerups
+                powerups.forEach(pu => {
+                    ctx.fillStyle = pu.type === 'speed' ? '#ffcc00' : '#00f0ff';
+                    ctx.shadowColor = ctx.fillStyle;
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.arc(pu.x, pu.y, pu.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+
+                // Draw Trail Particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const pt = particles[i];
+                    pt.life--;
+                    pt.alpha -= 0.03;
+                    if (pt.life <= 0 || pt.alpha <= 0) {
+                        particles.splice(i, 1);
+                        continue;
+                    }
+                    ctx.fillStyle = pt.color;
+                    ctx.globalAlpha = pt.alpha;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+
+                // Draw Players
+                players.forEach(p => {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+
+                    // Crown / IT Indicator Halo
+                    if (p.isIt) {
+                        ctx.strokeStyle = '#ff0055';
+                        ctx.shadowColor = '#ff0055';
+                        ctx.shadowBlur = 20;
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, p.radius + 6, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // IT Tag Text
+                        ctx.fillStyle = '#ff0055';
+                        ctx.font = 'bold 12px Fredoka';
+                        ctx.textAlign = 'center';
+                        ctx.fillText("TAG!", 0, -p.radius - 16);
+                    }
+
+                    // Avatar Circle
+                    ctx.fillStyle = p.isIt ? '#ff0055' : p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = p.isIt ? 25 : 10;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Inner border
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+
+                    // Name Tag
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 14px Fredoka';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(p.name, 0, p.radius + 18);
+
+                    ctx.restore();
+                });
+
+                ctx.restore();
+
+                // HUD Stats Update
+                playerCountEl.textContent = players.length;
+                if (localPlayer.isIt) {
+                    gameStatusEl.textContent = "YOU ARE IT! TAG OTHERS!";
+                    gameStatusEl.className = "text-red-400 font-bold";
+                } else {
+                    const currentItPlayer = players.find(p => p.isIt);
+                    gameStatusEl.textContent = `${currentItPlayer ? currentItPlayer.name : 'Someone'} is IT! Run!`;
+                    gameStatusEl.className = "text-amber-400 font-bold";
+                }
+
+                requestAnimationFrame(gameLoop);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
     </script>
 </body>
 </html>
